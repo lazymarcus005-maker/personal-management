@@ -9,7 +9,18 @@ function createDb() {
   return drizzle({ client: sql, schema });
 }
 
-export const db = createDb();
+type Db = ReturnType<typeof createDb>;
+
+let _db: Db | undefined;
+
+// Lazy proxy so importing this module doesn't require DATABASE_URL at build time
+export const db: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    _db ??= createDb();
+    const value = Reflect.get(_db as object, prop);
+    return typeof value === "function" ? value.bind(_db) : value;
+  },
+});
 
 export async function getDb() {
   return db;
