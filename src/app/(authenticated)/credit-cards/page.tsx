@@ -3,21 +3,30 @@ import { db } from "@/db";
 import { creditCards, creditCardStatements } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { CreditCardForm } from "@/components/credit-cards/credit-card-form";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardCarousel } from "./card-carousel";
+import { findBankLogo } from "@/lib/thai-banks";
 import { format } from "date-fns";
+import { CreditCard as CreditCardIcon } from "lucide-react";
+import Image from "next/image";
+
+const statementStatusStyles: Record<string, string> = {
+  PAID: "bg-[#D0E77F] text-[#13141A]",
+  OVERDUE: "bg-[#FFD4D4] text-[#B91C1C]",
+  DEFAULT: "bg-[#FFE4C7] text-[#B45309]",
+};
 
 export default async function CreditCardsPage() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const cards = await db
     .select()
@@ -41,103 +50,111 @@ export default async function CreditCardsPage() {
     .orderBy(desc(creditCardStatements.statementDate))
     .limit(10);
 
+  const totalCreditLimit = cards.reduce(
+    (sum, c) => sum + (c.creditLimit ? parseFloat(c.creditLimit) : 0),
+    0
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Credit Cards
-          </h1>
-          <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-            Manage your credit cards and statements
+    <div className="min-h-screen" style={{ backgroundColor: "#EEF0F5" }}>
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-[#13141A]">Credit Cards</h1>
+            <p className="text-sm text-[#6B7280] mt-0.5">{dateStr}</p>
+          </div>
+          <CreditCardForm />
+        </div>
+
+        {/* Summary */}
+        <div className="mb-4">
+          <p className="text-[32px] font-bold tracking-tight text-[#13141A]">
+            {cards.length}{" "}
+            <span className="text-lg font-normal text-[#6B7280]">
+              {cards.length === 1 ? "card" : "cards"}
+            </span>
+          </p>
+          <p className="text-sm text-[#6B7280] mt-0.5">
+            {totalCreditLimit > 0
+              ? `${totalCreditLimit.toLocaleString()} THB total credit limit`
+              : "active credit cards"}
           </p>
         </div>
-        <CreditCardForm />
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Cards Carousel */}
         {cards.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center text-neutral-500">
-              No credit cards added yet
-            </CardContent>
-          </Card>
-        ) : (
-          cards.map((card) => (
-            <Card key={card.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{card.name}</CardTitle>
-                  <Badge variant="success">Active</Badge>
-                </div>
-                <p className="text-sm text-neutral-500">
-                  {card.bankName} •••• {card.lastFourDigits}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Statement</span>
-                  <span>Day {card.statementDay}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Payment Due</span>
-                  <span>Day {card.paymentDueDay}</span>
-                </div>
-                {card.creditLimit && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Limit</span>
-                    <span>
-                      {parseFloat(card.creditLimit).toLocaleString()} THB
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Recent Statements</h2>
-        <div className="space-y-3">
-          {statements.length === 0 ? (
-            <p className="text-center py-8 text-neutral-500">
-              No statements yet
+          <div className="rounded-[20px] bg-white p-8 text-center mb-8">
+            <p className="text-[#6B7280]">No credit cards added yet</p>
+            <p className="text-sm text-[#6B7280] mt-1">
+              Add your first card to get started.
             </p>
-          ) : (
-            statements.map(({ statement, card }) => (
-              <Card key={statement.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-medium">
-                      {card.name} -{" "}
-                      {format(statement.statementDate, "MMM yyyy")}
-                    </p>
-                    <p className="text-sm text-neutral-500">
-                      Due: {format(statement.dueDate, "MMM d, yyyy")}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      {parseFloat(statement.totalAmount).toLocaleString()} THB
-                    </p>
-                    <Badge
-                      variant={
-                        statement.status === "PAID"
-                          ? "success"
-                          : statement.status === "OVERDUE"
-                            ? "destructive"
-                            : "warning"
-                      }
-                    >
-                      {statement.status.replace("_", " ")}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="mb-8">
+            <CardCarousel cards={cards} />
+          </div>
+        )}
+
+        {/* Recent Statements */}
+        <h2 className="text-lg font-bold text-[#13141A] mb-3">
+          Recent Statements
+        </h2>
+        {statements.length === 0 ? (
+          <div className="rounded-[20px] bg-white p-8 text-center">
+            <p className="text-[#6B7280]">No statements yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {statements.map(({ statement, card }) => {
+              const bank = findBankLogo(card.bankName);
+              return (
+              <div
+                key={statement.id}
+                className="rounded-[20px] bg-white p-4 flex items-center gap-4"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0 overflow-hidden">
+                  {bank ? (
+                    <Image
+                      src={bank.logo}
+                      alt={bank.nameEN}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <CreditCardIcon className="w-5 h-5 text-[#13141A]" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[#13141A] truncate">
+                    {card.name} · {format(statement.statementDate, "MMM yyyy")}
+                  </p>
+                  <p className="text-xs text-[#6B7280] mt-0.5">
+                    Due {format(statement.dueDate, "MMM d, yyyy")}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-[#13141A]">
+                    {parseFloat(statement.totalAmount).toLocaleString()}{" "}
+                    <span className="text-xs font-normal text-[#6B7280]">
+                      THB
+                    </span>
+                  </p>
+                  <span
+                    className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${
+                      statementStatusStyles[statement.status] ??
+                      statementStatusStyles.DEFAULT
+                    }`}
+                  >
+                    {statement.status.replace("_", " ")}
+                  </span>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -67,10 +67,9 @@ export function TodoForm() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-1" />
-          New Todo
-        </Button>
+        <button className="w-10 h-10 rounded-full bg-[#13141A] text-white flex items-center justify-center hover:opacity-90 transition-opacity">
+          <Plus className="w-5 h-5" />
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
