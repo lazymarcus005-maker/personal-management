@@ -39,14 +39,14 @@ export function CardCarousel({ cards }: { cards: CreditCard[] }) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 sm:mx-0 sm:px-0"
       >
         {cards.map((card, i) => {
           const bank = findBankLogo(card.bankName);
           return (
           <div
             key={card.id}
-            className="snap-start shrink-0 w-[85%] sm:w-[340px] rounded-[28px] p-5 text-[#13141A] relative overflow-hidden"
+            className="relative w-[86%] max-w-[350px] shrink-0 snap-start overflow-hidden rounded-[28px] p-5 text-[#13141A] sm:w-[350px]"
             style={{ backgroundColor: cardColors[i % cardColors.length] }}
           >
             <div className="relative z-10">

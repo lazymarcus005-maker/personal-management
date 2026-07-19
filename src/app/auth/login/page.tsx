@@ -24,11 +24,16 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-dvh items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm">
+      <div className="mb-6 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#18201C] text-lg font-bold text-white">P</div>
+        <p className="text-sm text-[#69736D]">Everything important, in one calm place.</p>
+      </div>
+      <Card className="w-full rounded-[28px]">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Personal Hub</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardDescription>Sign in to Poj</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -84,6 +89,7 @@ export default async function LoginPage({
           </p>
         </CardFooter>
       </Card>
+      </div>
     </div>
   );
 }

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Personal Hub",
-  description: "Personal Management Dashboard",
+  title: "Poj — Personal Finance",
+  description: "A calm home for tasks, bills, cards, subscriptions, and notes.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full bg-[#F4F5F0] text-[#18201C]">{children}</body>
     </html>
   );
 }

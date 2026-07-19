@@ -12,7 +12,7 @@ export default async function NotesPage() {
 
   const userId = session.user.id;
 
-  const [allNotes, pinnedNotes, archivedNotes] = await Promise.all([
+  const [allNotes, pinnedNotes] = await Promise.all([
     db
       .select()
       .from(notes)
@@ -27,39 +27,34 @@ export default async function NotesPage() {
         and(eq(notes.userId, userId), eq(notes.isPinned, true), isNull(notes.archivedAt))
       )
       .orderBy(desc(notes.createdAt)),
-    db
-      .select()
-      .from(notes)
-      .where(
-        and(eq(notes.userId, userId), isNull(notes.archivedAt), eq(notes.isPinned, false))
-      )
-      .orderBy(desc(notes.createdAt)),
   ]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Notes</h1>
-          <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-            Write and manage your notes
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A847E]">Library</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#18201C] sm:text-3xl">Notes</h1>
+          <p className="mt-1 text-sm text-[#69736D]">
+            Ideas and details, kept close.
           </p>
         </div>
         <NoteForm />
       </div>
 
       <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">All ({allNotes.length})</TabsTrigger>
-          <TabsTrigger value="pinned">Pinned ({pinnedNotes.length})</TabsTrigger>
+        <TabsList className="h-auto rounded-full bg-white p-1 shadow-sm">
+          <TabsTrigger className="rounded-full px-4 data-[state=active]:bg-[#18201C] data-[state=active]:text-white" value="all">All ({allNotes.length})</TabsTrigger>
+          <TabsTrigger className="rounded-full px-4 data-[state=active]:bg-[#18201C] data-[state=active]:text-white" value="pinned">Pinned ({pinnedNotes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">
           {allNotes.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500">
+            <div className="rounded-2xl border border-dashed border-[#CDD3CD] bg-white/60 py-14 text-center text-[#69736D]">
               No notes yet. Create your first note!
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {allNotes.map((note) => (
                 <NoteCard key={note.id} note={note} />
               ))}
@@ -68,11 +63,11 @@ export default async function NotesPage() {
         </TabsContent>
         <TabsContent value="pinned" className="mt-4">
           {pinnedNotes.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500">
+            <div className="rounded-2xl border border-dashed border-[#CDD3CD] bg-white/60 py-14 text-center text-[#69736D]">
               No pinned notes
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {pinnedNotes.map((note) => (
                 <NoteCard key={note.id} note={note} />
               ))}
@@ -80,6 +75,7 @@ export default async function NotesPage() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

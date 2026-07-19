@@ -35,10 +35,11 @@ export default async function SetupPage({
   const { error } = await searchParams;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-dvh items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-sm rounded-[28px]">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome</CardTitle>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#18201C] text-lg font-bold text-white">P</div>
+          <CardTitle className="text-2xl">Set up Poj</CardTitle>
           <CardDescription>
             Create your admin account to get started
           </CardDescription>

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Pin,
@@ -29,7 +29,7 @@ import { format } from "date-fns";
 
 type Note = InferSelectModel<typeof notesTable>;
 
-const noteTypeColors: Record<string, string> = {
+const noteTypeColors: Record<string, BadgeProps["variant"]> = {
   GENERAL: "secondary",
   FINANCE: "success",
   IDEA: "info",
@@ -41,15 +41,15 @@ export function NoteCard({ note }: { note: Note }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Card>
+    <Card className="group min-h-[180px] transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base">{note.title}</CardTitle>
+          <CardTitle className="text-base leading-snug">{note.title}</CardTitle>
           <div className="flex gap-1 shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-8 w-8 rounded-full text-[#69736D]"
               onClick={() => startTransition(() => void togglePin(note.id))}
               disabled={isPending}
             >
@@ -62,7 +62,7 @@ export function NoteCard({ note }: { note: Note }) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-8 w-8 rounded-full text-[#69736D]"
               onClick={() => startTransition(() => void toggleFavorite(note.id))}
               disabled={isPending}
             >
@@ -76,28 +76,28 @@ export function NoteCard({ note }: { note: Note }) {
         </div>
         <div className="flex items-center gap-2">
           <Badge
-            variant={noteTypeColors[note.noteType] as any}
-            className="text-[10px] px-1.5 py-0"
+            variant={noteTypeColors[note.noteType]}
+            className="rounded-full px-2 py-0.5 text-[10px]"
           >
             {note.noteType}
           </Badge>
-          <span className="text-xs text-neutral-400">
+          <span className="text-xs text-[#98A09B]">
             {format(note.createdAt, "MMM d")}
           </span>
         </div>
       </CardHeader>
       {note.content && (
         <CardContent className="pb-3">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-3">
+          <p className="line-clamp-3 text-sm leading-6 text-[#5E6962]">
             {note.content}
           </p>
         </CardContent>
       )}
-      <div className="flex items-center gap-1 px-4 pb-3">
+      <div className="mt-auto flex items-center gap-1 px-4 pb-3">
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 text-neutral-400"
+          className="h-8 w-8 rounded-full text-[#98A09B]"
           onClick={() => startTransition(() => void archiveNote(note.id))}
           disabled={isPending}
         >
@@ -106,7 +106,7 @@ export function NoteCard({ note }: { note: Note }) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 text-neutral-400 hover:text-red-500"
+          className="h-8 w-8 rounded-full text-[#98A09B] hover:text-red-500"
           onClick={() => startTransition(() => void deleteNote(note.id))}
           disabled={isPending}
         >

@@ -69,7 +69,7 @@ export function CreditCardForm() {
           <DialogTitle>Add Credit Card</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Card Name</Label>
               <Input id="name" {...register("name")} />
@@ -100,7 +100,7 @@ export function CreditCardForm() {
               </p>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="statementDay">Statement Day</Label>
               <Input

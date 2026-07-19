@@ -12,10 +12,10 @@ export default async function AuthenticatedLayout({
   if (!session?.user) redirect("/auth/login");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <Sidebar />
-      <main className="flex-1 min-w-0 overflow-x-hidden pb-16 md:pb-0">
-        <div className="container mx-auto p-6">{children}</div>
+      <main className="min-w-0 flex-1 overflow-x-hidden pb-24 md:pb-0">
+        <div className="mx-auto w-full max-w-[1440px]">{children}</div>
       </main>
       <MobileNav />
     </div>

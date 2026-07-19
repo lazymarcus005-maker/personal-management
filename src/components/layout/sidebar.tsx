@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   Repeat,
+  WalletCards,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -33,12 +34,18 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
-      <div className="p-6">
-        <h1 className="text-xl font-bold tracking-tight">Personal Hub</h1>
+    <aside className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-[#DDE2DC] bg-[#FAFBF8] md:flex">
+      <div className="flex h-20 items-center gap-3 px-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#18201C] text-white">
+          <WalletCards className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-base font-bold tracking-tight">Poj</h1>
+          <p className="text-xs text-[#7A847E]">Personal finance</p>
+        </div>
       </div>
       <Separator />
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1.5 p-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -47,11 +54,11 @@ export function Sidebar() {
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-3",
-                  isActive && "font-medium"
+                  "h-11 w-full justify-start gap-3 rounded-xl px-3 text-[#69736D]",
+                  isActive && "bg-[#E4EED7] font-semibold text-[#18201C] shadow-none"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-[18px] w-[18px]" />
                 {item.label}
               </Button>
             </Link>
@@ -59,10 +66,10 @@ export function Sidebar() {
         })}
       </nav>
       <Separator />
-      <div className="p-4">
+      <div className="p-3">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+          className="h-11 w-full justify-start gap-3 rounded-xl text-[#69736D] hover:bg-red-50 hover:text-red-600"
           onClick={() => signOut()}
         >
           <LogOut className="h-4 w-4" />

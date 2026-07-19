@@ -21,8 +21,8 @@ export default async function SubscriptionsPage() {
   });
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#EEF0F5" }}>
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+      <div className="mx-auto max-w-6xl">
         <SubscriptionsHeader name={name} date={dateStr} />
 
         {/* Financial Summary Card */}
@@ -52,7 +52,7 @@ export default async function SubscriptionsPage() {
         </div>
 
         {/* Metric Cards Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="mobile-carousel grid grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
           <SubscriptionMetricCard
             title="Active"
             value={stats.subscriptions.length}

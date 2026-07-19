@@ -87,7 +87,7 @@ export function TodoForm() {
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" {...register("description")} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select

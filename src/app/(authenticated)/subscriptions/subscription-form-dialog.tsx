@@ -110,7 +110,7 @@ export function SubscriptionFormDialog({
               className="rounded-[14px]"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <Input
@@ -151,7 +151,7 @@ export function SubscriptionFormDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="billingDay">Billing Day</Label>
               <Input

@@ -86,7 +86,7 @@ export function FinancialItemForm() {
           <DialogTitle>Create Bill / Subscription</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Type</Label>
               <Select
@@ -142,7 +142,7 @@ export function FinancialItemForm() {
             <Label htmlFor="description">Description</Label>
             <Input id="description" {...register("description")} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <Input

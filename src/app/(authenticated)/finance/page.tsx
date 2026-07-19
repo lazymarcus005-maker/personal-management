@@ -50,8 +50,8 @@ export default async function FinancePage() {
   );
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#EEF0F5" }}>
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+      <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -89,7 +89,7 @@ export default async function FinancePage() {
         </div>
 
         {/* Metric Cards Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="mobile-carousel grid grid-cols-2 gap-3 mb-7">
           <div className="rounded-[20px] p-4 text-[#13141A] bg-[#FBD4E6]">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium opacity-70">Bills</p>
