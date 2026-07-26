@@ -131,9 +131,22 @@ export async function getChecklistItems(todoId: string) {
 
   const db = await getDb();
   return db
-    .select()
+    .select({
+      id: todoChecklistItems.id,
+      todoId: todoChecklistItems.todoId,
+      content: todoChecklistItems.content,
+      isCompleted: todoChecklistItems.isCompleted,
+      sortOrder: todoChecklistItems.sortOrder,
+      createdAt: todoChecklistItems.createdAt,
+    })
     .from(todoChecklistItems)
-    .where(eq(todoChecklistItems.todoId, todoId))
+    .innerJoin(todos, eq(todoChecklistItems.todoId, todos.id))
+    .where(
+      and(
+        eq(todoChecklistItems.todoId, todoId),
+        eq(todos.userId, session.user.id)
+      )
+    )
     .orderBy(todoChecklistItems.sortOrder);
 }
 
@@ -142,6 +155,14 @@ export async function addChecklistItem(todoId: string, content: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const db = await getDb();
+  // Only allow adding items to a todo the current user owns.
+  const [parent] = await db
+    .select({ id: todos.id })
+    .from(todos)
+    .where(and(eq(todos.id, todoId), eq(todos.userId, session.user.id)));
+
+  if (!parent) throw new Error("Not found");
+
   const [item] = await db
     .insert(todoChecklistItems)
     .values({ todoId, content })
@@ -156,16 +177,18 @@ export async function toggleChecklistItem(id: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const db = await getDb();
+  // Join to the parent todo and verify ownership before mutating the item.
   const [existing] = await db
-    .select()
+    .select({ item: todoChecklistItems })
     .from(todoChecklistItems)
-    .where(eq(todoChecklistItems.id, id));
+    .innerJoin(todos, eq(todoChecklistItems.todoId, todos.id))
+    .where(and(eq(todoChecklistItems.id, id), eq(todos.userId, session.user.id)));
 
   if (!existing) throw new Error("Not found");
 
   const [item] = await db
     .update(todoChecklistItems)
-    .set({ isCompleted: !existing.isCompleted })
+    .set({ isCompleted: !existing.item.isCompleted })
     .where(eq(todoChecklistItems.id, id))
     .returning();
 
@@ -178,9 +201,16 @@ export async function deleteChecklistItem(id: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const db = await getDb();
-  await db
-    .delete(todoChecklistItems)
-    .where(eq(todoChecklistItems.id, id));
+  // Verify the item's parent todo belongs to the user before deleting.
+  const [existing] = await db
+    .select({ id: todoChecklistItems.id })
+    .from(todoChecklistItems)
+    .innerJoin(todos, eq(todoChecklistItems.todoId, todos.id))
+    .where(and(eq(todoChecklistItems.id, id), eq(todos.userId, session.user.id)));
+
+  if (!existing) throw new Error("Not found");
+
+  await db.delete(todoChecklistItems).where(eq(todoChecklistItems.id, id));
 
   revalidatePath("/todos");
 }

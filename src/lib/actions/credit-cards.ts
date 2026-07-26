@@ -129,6 +129,19 @@ export async function createStatement(data: {
 
   const db = await getDb();
 
+  // Only allow creating statements under a credit card the user owns.
+  const [parent] = await db
+    .select({ id: creditCards.id })
+    .from(creditCards)
+    .where(
+      and(
+        eq(creditCards.id, data.creditCardId),
+        eq(creditCards.userId, session.user.id)
+      )
+    );
+
+  if (!parent) throw new Error("Not found");
+
   const [statement] = await db
     .insert(creditCardStatements)
     .values({
@@ -152,15 +165,22 @@ export async function getTransactions(statementId?: string) {
 
   const db = await getDb();
 
+  // Join through the owning credit card so transactions can only ever be read
+  // for cards belonging to the current user, even with a crafted statementId.
+  const conditions = [eq(creditCards.userId, session.user.id)];
+  if (statementId) {
+    conditions.push(eq(creditCardTransactions.statementId, statementId));
+  }
+
   return db
     .select({
       transaction: creditCardTransactions,
     })
     .from(creditCardTransactions)
-    .where(
-      statementId
-        ? eq(creditCardTransactions.statementId, statementId)
-        : undefined
+    .innerJoin(
+      creditCards,
+      eq(creditCardTransactions.creditCardId, creditCards.id)
     )
+    .where(and(...conditions))
     .orderBy(desc(creditCardTransactions.transactionDate));
 }
