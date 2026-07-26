@@ -84,7 +84,9 @@ export async function updateFinancialItem(
 
   const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
   if (typeof updateData.startDate === "string") updateData.startDate = new Date(updateData.startDate);
-  if (typeof updateData.endDate === "string") updateData.endDate = new Date(updateData.endDate);
+  if (typeof updateData.endDate === "string") {
+    updateData.endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+  }
 
   const [item] = await db
     .update(financialItems)

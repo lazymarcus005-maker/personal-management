@@ -114,7 +114,7 @@ export function SubscriptionFormDialog({
     if (open) {
       reset(subscription ? subscriptionToFormData(subscription) : emptyDefaults);
     }
-  }, [open, subscription, reset]);
+  }, [open, subscription?.id, reset]);
 
   const logoUrl = watch("logoUrl");
 
