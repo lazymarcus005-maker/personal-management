@@ -112,9 +112,12 @@ export async function getOccurrences(financialItemId?: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
 
-  const conditions = financialItemId
-    ? eq(financialOccurrences.financialItemId, financialItemId)
-    : undefined;
+  // Verify ownership through the parent financial item so occurrences can't be
+  // read for another user's items via a crafted financialItemId.
+  const conditions = [eq(financialItems.userId, session.user.id)];
+  if (financialItemId) {
+    conditions.push(eq(financialOccurrences.financialItemId, financialItemId));
+  }
 
   return db
     .select({
@@ -126,7 +129,7 @@ export async function getOccurrences(financialItemId?: string) {
       financialItems,
       eq(financialOccurrences.financialItemId, financialItems.id)
     )
-    .where(conditions)
+    .where(and(...conditions))
     .orderBy(desc(financialOccurrences.dueDate));
 }
 
@@ -140,6 +143,19 @@ export async function createOccurrence(data: {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
+
+  // Only allow creating occurrences under a financial item the user owns.
+  const [parent] = await db
+    .select({ id: financialItems.id })
+    .from(financialItems)
+    .where(
+      and(
+        eq(financialItems.id, data.financialItemId),
+        eq(financialItems.userId, session.user.id)
+      )
+    );
+
+  if (!parent) throw new Error("Not found");
 
   const [occurrence] = await db
     .insert(financialOccurrences)
@@ -160,6 +176,23 @@ export async function markOccurrencePaid(id: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
+
+  // Verify the occurrence's parent item belongs to the user before updating.
+  const [owned] = await db
+    .select({ id: financialOccurrences.id })
+    .from(financialOccurrences)
+    .innerJoin(
+      financialItems,
+      eq(financialOccurrences.financialItemId, financialItems.id)
+    )
+    .where(
+      and(
+        eq(financialOccurrences.id, id),
+        eq(financialItems.userId, session.user.id)
+      )
+    );
+
+  if (!owned) throw new Error("Not found");
 
   const [occurrence] = await db
     .update(financialOccurrences)

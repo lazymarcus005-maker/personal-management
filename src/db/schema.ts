@@ -8,6 +8,7 @@ import {
   boolean,
   primaryKey,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 
@@ -112,16 +113,23 @@ export const accounts = pgTable(
     compoundKey: primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
+    userIdIdx: index("account_user_id_idx").on(account.userId),
   })
 );
 
-export const sessions = pgTable("session", {
-  sessionToken: text("sessionToken").primaryKey(),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date" }).notNull(),
-});
+export const sessions = pgTable(
+  "session",
+  {
+    sessionToken: text("sessionToken").primaryKey(),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
+  },
+  (session) => ({
+    userIdIdx: index("session_user_id_idx").on(session.userId),
+  })
+);
 
 export const verificationTokens = pgTable(
   "verificationToken",
@@ -184,203 +192,288 @@ export const recurrenceRules = pgTable("recurrence_rules", {
 // Reminders
 // ============================================================
 
-export const reminders = pgTable("reminders", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  entityType: text("entity_type").notNull(),
-  entityId: uuid("entity_id").notNull(),
-  remindAt: timestamp("remind_at", { mode: "date" }).notNull(),
-  status: reminderStatusEnum("status").default("PENDING").notNull(),
-  type: text("type").default("IN_APP"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const reminders = pgTable(
+  "reminders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    remindAt: timestamp("remind_at", { mode: "date" }).notNull(),
+    status: reminderStatusEnum("status").default("PENDING").notNull(),
+    type: text("type").default("IN_APP"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (reminder) => ({
+    userIdIdx: index("reminders_user_id_idx").on(reminder.userId),
+    statusIdx: index("reminders_status_idx").on(reminder.status),
+    remindAtIdx: index("reminders_remind_at_idx").on(reminder.remindAt),
+  })
+);
 
 // ============================================================
 // Payment Methods
 // ============================================================
 
-export const paymentMethods = pgTable("payment_methods", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  type: text("type").notNull(),
-  details: text("details"),
-  isDefault: boolean("is_default").default(false),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const paymentMethods = pgTable(
+  "payment_methods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: text("type").notNull(),
+    details: text("details"),
+    isDefault: boolean("is_default").default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (pm) => ({
+    userIdIdx: index("payment_methods_user_id_idx").on(pm.userId),
+  })
+);
 
 // ============================================================
 // Todos
 // ============================================================
 
-export const todos = pgTable("todos", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  status: todoStatusEnum("status").default("TODO").notNull(),
-  priority: todoPriorityEnum("priority").default("MEDIUM").notNull(),
-  dueAt: timestamp("due_at", { mode: "date" }),
-  completedAt: timestamp("completed_at", { mode: "date" }),
-  isRecurring: boolean("is_recurring").default(false),
-  recurrenceRuleId: uuid("recurrence_rule_id").references(
-    () => recurrenceRules.id
-  ),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-  archivedAt: timestamp("archived_at", { mode: "date" }),
-});
+export const todos = pgTable(
+  "todos",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: todoStatusEnum("status").default("TODO").notNull(),
+    priority: todoPriorityEnum("priority").default("MEDIUM").notNull(),
+    dueAt: timestamp("due_at", { mode: "date" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    isRecurring: boolean("is_recurring").default(false),
+    recurrenceRuleId: uuid("recurrence_rule_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+  },
+  (todo) => ({
+    userIdIdx: index("todos_user_id_idx").on(todo.userId),
+    userStatusIdx: index("todos_user_status_idx").on(todo.userId, todo.status),
+    dueAtIdx: index("todos_due_at_idx").on(todo.dueAt),
+  })
+);
 
-export const todoChecklistItems = pgTable("todo_checklist_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  todoId: uuid("todo_id")
-    .notNull()
-    .references(() => todos.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  isCompleted: boolean("is_completed").default(false),
-  sortOrder: integer("sort_order").default(0),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const todoChecklistItems = pgTable(
+  "todo_checklist_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    todoId: uuid("todo_id")
+      .notNull()
+      .references(() => todos.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    isCompleted: boolean("is_completed").default(false),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (item) => ({
+    todoIdIdx: index("todo_checklist_items_todo_id_idx").on(item.todoId),
+  })
+);
 
 // ============================================================
 // Financial Items (Recurring Bills & Subscriptions)
 // ============================================================
 
-export const financialItems = pgTable("financial_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: financialItemTypeEnum("type").notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  currency: text("currency").default("THB"),
-  billingCycle: billingCycleEnum("billing_cycle").notNull(),
-  billingDay: integer("billing_day"),
-  startDate: timestamp("start_date", { mode: "date" }).notNull(),
-  endDate: timestamp("end_date", { mode: "date" }),
-  paymentMethodId: uuid("payment_method_id").references(
-    () => paymentMethods.id
-  ),
-  autoRenew: boolean("auto_renew").default(false),
-  isVariableAmount: boolean("is_variable_amount").default(false),
-  status: text("status").default("ACTIVE"),
-  recurrenceRuleId: uuid("recurrence_rule_id").references(
-    () => recurrenceRules.id
-  ),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const financialItems = pgTable(
+  "financial_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: financialItemTypeEnum("type").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").default("THB"),
+    billingCycle: billingCycleEnum("billing_cycle").notNull(),
+    billingDay: integer("billing_day"),
+    startDate: timestamp("start_date", { mode: "date" }).notNull(),
+    endDate: timestamp("end_date", { mode: "date" }),
+    paymentMethodId: uuid("payment_method_id").references(
+      () => paymentMethods.id
+    ),
+    autoRenew: boolean("auto_renew").default(false),
+    isVariableAmount: boolean("is_variable_amount").default(false),
+    status: text("status").default("ACTIVE"),
+    recurrenceRuleId: uuid("recurrence_rule_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (item) => ({
+    userIdIdx: index("financial_items_user_id_idx").on(item.userId),
+    userStatusIdx: index("financial_items_user_status_idx").on(
+      item.userId,
+      item.status
+    ),
+    typeIdx: index("financial_items_type_idx").on(item.type),
+  })
+);
 
-export const financialOccurrences = pgTable("financial_occurrences", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  financialItemId: uuid("financial_item_id")
-    .notNull()
-    .references(() => financialItems.id, { onDelete: "cascade" }),
-  periodStart: timestamp("period_start", { mode: "date" }).notNull(),
-  periodEnd: timestamp("period_end", { mode: "date" }).notNull(),
-  dueDate: timestamp("due_date", { mode: "date" }).notNull(),
-  expectedAmount: decimal("expected_amount", {
-    precision: 12,
-    scale: 2,
-  }).notNull(),
-  actualAmount: decimal("actual_amount", { precision: 12, scale: 2 }),
-  status: financialOccurrenceStatusEnum("status").default("UPCOMING").notNull(),
-  paidAt: timestamp("paid_at", { mode: "date" }),
-  creditCardTransactionId: uuid("credit_card_transaction_id"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const financialOccurrences = pgTable(
+  "financial_occurrences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    financialItemId: uuid("financial_item_id")
+      .notNull()
+      .references(() => financialItems.id, { onDelete: "cascade" }),
+    periodStart: timestamp("period_start", { mode: "date" }).notNull(),
+    periodEnd: timestamp("period_end", { mode: "date" }).notNull(),
+    dueDate: timestamp("due_date", { mode: "date" }).notNull(),
+    expectedAmount: decimal("expected_amount", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    actualAmount: decimal("actual_amount", { precision: 12, scale: 2 }),
+    status: financialOccurrenceStatusEnum("status")
+      .default("UPCOMING")
+      .notNull(),
+    paidAt: timestamp("paid_at", { mode: "date" }),
+    creditCardTransactionId: uuid("credit_card_transaction_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (occ) => ({
+    financialItemIdIdx: index("financial_occurrences_item_id_idx").on(
+      occ.financialItemId
+    ),
+    dueDateIdx: index("financial_occurrences_due_date_idx").on(occ.dueDate),
+    statusIdx: index("financial_occurrences_status_idx").on(occ.status),
+  })
+);
 
 // ============================================================
 // Credit Cards
 // ============================================================
 
-export const creditCards = pgTable("credit_cards", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  bankName: text("bank_name").notNull(),
-  lastFourDigits: text("last_four_digits").notNull(),
-  creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }),
-  statementDay: integer("statement_day").notNull(),
-  paymentDueDay: integer("payment_due_day").notNull(),
-  status: creditCardStatusEnum("status").default("ACTIVE").notNull(),
-  color: text("color").default("#6366f1"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const creditCards = pgTable(
+  "credit_cards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    bankName: text("bank_name").notNull(),
+    lastFourDigits: text("last_four_digits").notNull(),
+    creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }),
+    statementDay: integer("statement_day").notNull(),
+    paymentDueDay: integer("payment_due_day").notNull(),
+    status: creditCardStatusEnum("status").default("ACTIVE").notNull(),
+    color: text("color").default("#6366f1"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (card) => ({
+    userIdIdx: index("credit_cards_user_id_idx").on(card.userId),
+    userStatusIdx: index("credit_cards_user_status_idx").on(
+      card.userId,
+      card.status
+    ),
+  })
+);
 
-export const creditCardStatements = pgTable("credit_card_statements", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  creditCardId: uuid("credit_card_id")
-    .notNull()
-    .references(() => creditCards.id, { onDelete: "cascade" }),
-  statementPeriodStart: timestamp("statement_period_start", {
-    mode: "date",
-  }).notNull(),
-  statementPeriodEnd: timestamp("statement_period_end", {
-    mode: "date",
-  }).notNull(),
-  statementDate: timestamp("statement_date", { mode: "date" }).notNull(),
-  dueDate: timestamp("due_date", { mode: "date" }).notNull(),
-  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
-  minimumPayment: decimal("minimum_payment", {
-    precision: 12,
-    scale: 2,
-  }).notNull(),
-  paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }),
-  status: statementStatusEnum("status").default("OPEN").notNull(),
-  paidAt: timestamp("paid_at", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const creditCardStatements = pgTable(
+  "credit_card_statements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    creditCardId: uuid("credit_card_id")
+      .notNull()
+      .references(() => creditCards.id, { onDelete: "cascade" }),
+    statementPeriodStart: timestamp("statement_period_start", {
+      mode: "date",
+    }).notNull(),
+    statementPeriodEnd: timestamp("statement_period_end", {
+      mode: "date",
+    }).notNull(),
+    statementDate: timestamp("statement_date", { mode: "date" }).notNull(),
+    dueDate: timestamp("due_date", { mode: "date" }).notNull(),
+    totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+    minimumPayment: decimal("minimum_payment", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }),
+    status: statementStatusEnum("status").default("OPEN").notNull(),
+    paidAt: timestamp("paid_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (statement) => ({
+    creditCardIdIdx: index("credit_card_statements_card_id_idx").on(
+      statement.creditCardId
+    ),
+    statusIdx: index("credit_card_statements_status_idx").on(statement.status),
+  })
+);
 
-export const creditCardTransactions = pgTable("credit_card_transactions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  creditCardId: uuid("credit_card_id")
-    .notNull()
-    .references(() => creditCards.id, { onDelete: "cascade" }),
-  statementId: uuid("statement_id").references(
-    () => creditCardStatements.id
-  ),
-  transactionDate: timestamp("transaction_date", { mode: "date" }).notNull(),
-  merchant: text("merchant").notNull(),
-  description: text("description"),
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  category: text("category"),
-  installmentNumber: integer("installment_number"),
-  installmentTotal: integer("installment_total"),
-  financialItemId: uuid("financial_item_id").references(
-    () => financialItems.id
-  ),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const creditCardTransactions = pgTable(
+  "credit_card_transactions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    creditCardId: uuid("credit_card_id")
+      .notNull()
+      .references(() => creditCards.id, { onDelete: "cascade" }),
+    statementId: uuid("statement_id").references(() => creditCardStatements.id),
+    transactionDate: timestamp("transaction_date", { mode: "date" }).notNull(),
+    merchant: text("merchant").notNull(),
+    description: text("description"),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    category: text("category"),
+    installmentNumber: integer("installment_number"),
+    installmentTotal: integer("installment_total"),
+    financialItemId: uuid("financial_item_id").references(
+      () => financialItems.id
+    ),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (txn) => ({
+    creditCardIdIdx: index("credit_card_transactions_card_id_idx").on(
+      txn.creditCardId
+    ),
+    statementIdIdx: index("credit_card_transactions_statement_id_idx").on(
+      txn.statementId
+    ),
+    transactionDateIdx: index("credit_card_transactions_date_idx").on(
+      txn.transactionDate
+    ),
+  })
+);
 
 // ============================================================
 // Notes
 // ============================================================
 
-export const notes = pgTable("notes", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  content: text("content"),
-  noteType: noteTypeEnum("note_type").default("GENERAL").notNull(),
-  isPinned: boolean("is_pinned").default(false),
-  isFavorite: boolean("is_favorite").default(false),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-  archivedAt: timestamp("archived_at", { mode: "date" }),
-});
+export const notes = pgTable(
+  "notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    content: text("content"),
+    noteType: noteTypeEnum("note_type").default("GENERAL").notNull(),
+    isPinned: boolean("is_pinned").default(false),
+    isFavorite: boolean("is_favorite").default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+  },
+  (note) => ({
+    userIdIdx: index("notes_user_id_idx").on(note.userId),
+    archivedAtIdx: index("notes_archived_at_idx").on(note.archivedAt),
+  })
+);
