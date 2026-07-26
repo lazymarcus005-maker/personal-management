@@ -23,6 +23,7 @@ const financialItemSchema = z.object({
   endDate: z.string().optional(),
   paymentMethodId: z.string().optional(),
   autoRenew: z.boolean(),
+  logoUrl: z.string().url().optional().or(z.literal("")),
 });
 
 export async function getFinancialItems(type?: string) {
@@ -63,10 +64,12 @@ export async function createFinancialItem(
       endDate: parsed.endDate ? new Date(parsed.endDate) : null,
       paymentMethodId: parsed.paymentMethodId || null,
       autoRenew: parsed.autoRenew,
+      logoUrl: parsed.logoUrl || null,
     })
     .returning();
 
   revalidatePath("/finance");
+  revalidatePath("/subscriptions");
   revalidatePath("/");
   return item;
 }
@@ -81,7 +84,9 @@ export async function updateFinancialItem(
 
   const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
   if (typeof updateData.startDate === "string") updateData.startDate = new Date(updateData.startDate);
-  if (typeof updateData.endDate === "string") updateData.endDate = new Date(updateData.endDate);
+  if (typeof updateData.endDate === "string") {
+    updateData.endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+  }
 
   const [item] = await db
     .update(financialItems)
@@ -90,6 +95,7 @@ export async function updateFinancialItem(
     .returning();
 
   revalidatePath("/finance");
+  revalidatePath("/subscriptions");
   revalidatePath("/");
   return item;
 }
@@ -104,6 +110,7 @@ export async function deleteFinancialItem(id: string) {
     .where(and(eq(financialItems.id, id), eq(financialItems.userId, session.user.id)));
 
   revalidatePath("/finance");
+  revalidatePath("/subscriptions");
   revalidatePath("/");
 }
 
