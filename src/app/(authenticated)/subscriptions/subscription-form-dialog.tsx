@@ -1,10 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createFinancialItem } from "@/lib/actions/finance";
+import { createFinancialItem, updateFinancialItem } from "@/lib/actions/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import type { InferSelectModel } from "drizzle-orm";
+import type { financialItems as financialItemsTable } from "@/db/schema";
+
+type Subscription = InferSelectModel<typeof financialItemsTable>;
 
 const formSchema = z.object({
   type: z.enum(["RECURRING_BILL", "SUBSCRIPTION"]),
@@ -41,39 +45,86 @@ const formSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
   autoRenew: z.boolean(),
+  logoUrl: z.string().url("Enter a valid URL").optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
+const emptyDefaults: FormData = {
+  type: "SUBSCRIPTION",
+  name: "",
+  description: "",
+  amount: "",
+  currency: "THB",
+  billingCycle: "MONTHLY",
+  billingDay: undefined,
+  startDate: "",
+  endDate: "",
+  autoRenew: false,
+  logoUrl: "",
+};
+
+function toDateInputValue(date: Date | null): string {
+  if (!date) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function subscriptionToFormData(subscription: Subscription): FormData {
+  return {
+    type: subscription.type,
+    name: subscription.name,
+    description: subscription.description ?? "",
+    amount: subscription.amount,
+    currency: subscription.currency ?? "THB",
+    billingCycle: subscription.billingCycle,
+    billingDay: subscription.billingDay ?? undefined,
+    startDate: toDateInputValue(subscription.startDate),
+    endDate: toDateInputValue(subscription.endDate),
+    autoRenew: subscription.autoRenew ?? false,
+    logoUrl: subscription.logoUrl ?? "",
+  };
+}
+
 export function SubscriptionFormDialog({
   open,
   onOpenChange,
+  subscription,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  subscription?: Subscription | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const isEditing = Boolean(subscription);
 
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      type: "SUBSCRIPTION",
-      currency: "THB",
-      billingCycle: "MONTHLY",
-      autoRenew: false,
-    },
+    defaultValues: emptyDefaults,
   });
+
+  useEffect(() => {
+    if (open) {
+      reset(subscription ? subscriptionToFormData(subscription) : emptyDefaults);
+    }
+  }, [open, subscription, reset]);
+
+  const logoUrl = watch("logoUrl");
 
   const onSubmit = handleSubmit((data) => {
     startTransition(async () => {
-      await createFinancialItem(data);
+      if (subscription) {
+        await updateFinancialItem(subscription.id, data);
+      } else {
+        await createFinancialItem(data);
+      }
       reset();
       onOpenChange(false);
       router.refresh();
@@ -85,7 +136,7 @@ export function SubscriptionFormDialog({
       <DialogContent className="sm:max-w-[500px] rounded-[20px]">
         <DialogHeader>
           <DialogTitle className="text-[#13141A]">
-            Add Subscription
+            {isEditing ? "Edit Subscription" : "Add Subscription"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -110,6 +161,34 @@ export function SubscriptionFormDialog({
               className="rounded-[14px]"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="logoUrl">Logo URL</Label>
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover shrink-0 bg-[#EEF0F5]"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                  onLoad={(e) => {
+                    e.currentTarget.style.visibility = "visible";
+                  }}
+                />
+              )}
+              <Input
+                id="logoUrl"
+                placeholder="https://example.com/logo.png"
+                {...register("logoUrl")}
+                className="rounded-[14px]"
+              />
+            </div>
+            {errors.logoUrl && (
+              <p className="text-xs text-red-500">{errors.logoUrl.message}</p>
+            )}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
@@ -130,7 +209,7 @@ export function SubscriptionFormDialog({
             <div className="space-y-2">
               <Label>Billing Cycle</Label>
               <Select
-                defaultValue="MONTHLY"
+                defaultValue={subscription?.billingCycle ?? "MONTHLY"}
                 onValueChange={(v) =>
                   setValue(
                     "billingCycle",
@@ -182,6 +261,7 @@ export function SubscriptionFormDialog({
           <div className="flex items-center gap-2">
             <Switch
               id="autoRenew"
+              defaultChecked={subscription?.autoRenew ?? false}
               onCheckedChange={(v) => setValue("autoRenew", v)}
             />
             <Label htmlFor="autoRenew">Auto Renew</Label>
@@ -200,7 +280,13 @@ export function SubscriptionFormDialog({
               disabled={isPending}
               className="rounded-[14px] bg-[#13141A] hover:bg-[#13141A]/90"
             >
-              {isPending ? "Adding..." : "Add Subscription"}
+              {isPending
+                ? isEditing
+                  ? "Saving..."
+                  : "Adding..."
+                : isEditing
+                  ? "Save Changes"
+                  : "Add Subscription"}
             </Button>
           </div>
         </form>
