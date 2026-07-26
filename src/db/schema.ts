@@ -297,6 +297,7 @@ export const financialItems = pgTable(
     type: financialItemTypeEnum("type").notNull(),
     name: text("name").notNull(),
     description: text("description"),
+    logoUrl: text("logo_url"),
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
     currency: text("currency").default("THB"),
     billingCycle: billingCycleEnum("billing_cycle").notNull(),
