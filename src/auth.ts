@@ -43,7 +43,7 @@ function registerFailure(key: string): void {
   }
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   providers: [
     Credentials({
       credentials: {
@@ -113,8 +113,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.sub) session.user.id = token.sub;
       return session;
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) token.sub = user.id;
+      // Allow account settings to push updated name/email into the active
+      // session via unstable_update() without requiring a full re-login.
+      if (trigger === "update" && session?.user) {
+        if (session.user.name !== undefined) token.name = session.user.name;
+        if (session.user.email !== undefined) token.email = session.user.email;
+      }
       return token;
     },
   },
