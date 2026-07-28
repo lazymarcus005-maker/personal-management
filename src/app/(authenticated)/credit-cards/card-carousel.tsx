@@ -5,7 +5,13 @@ import Image from "next/image";
 import type { InferSelectModel } from "drizzle-orm";
 import type { creditCards as creditCardsTable } from "@/db/schema";
 import { findBankLogo } from "@/lib/thai-banks";
-import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  CreditCard as CreditCardIcon,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+} from "lucide-react";
+import { CreditCardFormDialog } from "@/components/credit-cards/credit-card-form-dialog";
 
 type CreditCard = InferSelectModel<typeof creditCardsTable>;
 
@@ -14,6 +20,7 @@ const cardColors = ["#D0E77F", "#E5DBFE", "#ACCDFF", "#FBD4E6"];
 export function CardCarousel({ cards }: { cards: CreditCard[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
 
   const scrollToIndex = (index: number) => {
     const el = scrollRef.current;
@@ -50,20 +57,40 @@ export function CardCarousel({ cards }: { cards: CreditCard[] }) {
             style={{ backgroundColor: cardColors[i % cardColors.length] }}
           >
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-6">
-                <p className="font-bold text-lg">{card.name}</p>
-                <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center overflow-hidden">
-                  {bank ? (
-                    <Image
-                      src={bank.logo}
-                      alt={bank.nameEN}
-                      width={36}
-                      height={36}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <CreditCardIcon className="w-4 h-4" />
-                  )}
+              <div className="flex items-center justify-between mb-6 gap-2">
+                <p className="font-bold text-lg truncate">{card.name}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center overflow-hidden shrink-0">
+                    {card.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={card.logoUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : bank ? (
+                      <Image
+                        src={bank.logo}
+                        alt={bank.nameEN}
+                        width={36}
+                        height={36}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <CreditCardIcon className="w-4 h-4" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCard(card)}
+                    className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center hover:bg-white transition-colors shrink-0"
+                    aria-label={`Edit ${card.name}`}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
               <p className="text-sm font-medium opacity-70 mb-4 tracking-widest">
@@ -142,6 +169,13 @@ export function CardCarousel({ cards }: { cards: CreditCard[] }) {
           </button>
         </div>
       )}
+      <CreditCardFormDialog
+        open={editingCard !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingCard(null);
+        }}
+        card={editingCard}
+      />
     </div>
   );
 }

@@ -114,7 +114,14 @@ export default async function CreditCardsPage() {
                 className="rounded-[20px] bg-white p-4 flex items-center gap-4"
               >
                 <div className="w-12 h-12 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0 overflow-hidden">
-                  {bank ? (
+                  {card.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={card.logoUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : bank ? (
                     <Image
                       src={bank.logo}
                       alt={bank.nameEN}

@@ -394,6 +394,7 @@ export const creditCards = pgTable(
     paymentDueDay: integer("payment_due_day").notNull(),
     status: creditCardStatusEnum("status").default("ACTIVE").notNull(),
     color: text("color").default("#6366f1"),
+    logoUrl: text("logo_url"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),

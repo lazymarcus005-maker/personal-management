@@ -4,7 +4,39 @@ import { financialItems } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { FinancialItemForm } from "@/components/finance/financial-item-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Receipt, Radio } from "lucide-react";
+import {
+  Receipt,
+  Radio,
+  Film,
+  Wifi,
+  Zap,
+  Smartphone,
+  Cloud,
+  Music,
+  BookOpen,
+  type LucideIcon,
+} from "lucide-react";
+
+const subscriptionIconMap: Record<string, LucideIcon> = {
+  netflix: Film,
+  spotify: Music,
+  youtube: Film,
+  cloud: Cloud,
+  internet: Wifi,
+  mobile: Smartphone,
+  electricity: Zap,
+  chatgpt: BookOpen,
+  copilot: BookOpen,
+  default: Radio,
+};
+
+function getSubscriptionIcon(name: string): LucideIcon {
+  const lower = name.toLowerCase();
+  for (const [key, icon] of Object.entries(subscriptionIconMap)) {
+    if (lower.includes(key)) return icon;
+  }
+  return subscriptionIconMap.default;
+}
 
 export default async function FinancePage() {
   const session = await auth();
@@ -167,11 +199,25 @@ function FinancialItemCard({
 }: {
   item: typeof financialItems.$inferSelect;
 }) {
-  const Icon = item.type === "SUBSCRIPTION" ? Radio : Receipt;
+  const Icon =
+    item.type === "SUBSCRIPTION" ? getSubscriptionIcon(item.name) : Receipt;
   return (
     <div className="rounded-[20px] bg-white p-4 flex items-center gap-4">
-      <div className="w-12 h-12 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0">
-        <Icon className="w-5 h-5 text-[#13141A]" />
+      <div className="w-12 h-12 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0 overflow-hidden">
+        {item.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.logoUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          // eslint-disable-next-line react-hooks/static-components
+          <Icon className="w-5 h-5 text-[#13141A]" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
