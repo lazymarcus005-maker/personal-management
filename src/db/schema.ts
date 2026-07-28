@@ -143,6 +143,26 @@ export const verificationTokens = pgTable(
   })
 );
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    usedAt: timestamp("used_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tokenHashIdx: index("password_reset_tokens_token_hash_idx").on(
+      t.tokenHash
+    ),
+    userIdIdx: index("password_reset_tokens_user_id_idx").on(t.userId),
+  })
+);
+
 // ============================================================
 // Tags
 // ============================================================

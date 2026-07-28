@@ -7,6 +7,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -28,20 +30,25 @@ export default async function SettingsPage() {
           <CardDescription>Your account information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            {session?.user?.image ? (
-              <img
-                src={session.user.image}
-                alt="Profile"
-                className="h-16 w-16 rounded-full"
-              />
-            ) : (
-              <Avatar className="h-16 w-16 bg-[#E4EED7]" />
-            )}
-            <div>
-              <p className="font-medium">{session?.user?.name}</p>
-              <p className="text-sm text-[#69736D]">{session?.user?.email}</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {session?.user?.image ? (
+                <img
+                  src={session.user.image}
+                  alt="Profile"
+                  className="h-16 w-16 rounded-full"
+                />
+              ) : (
+                <Avatar className="h-16 w-16 bg-[#E4EED7]" />
+              )}
+              <div>
+                <p className="font-medium">{session?.user?.name}</p>
+                <p className="text-sm text-[#69736D]">{session?.user?.email}</p>
+              </div>
             </div>
+            <Button asChild variant="outline">
+              <Link href="/settings/account">Manage account</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

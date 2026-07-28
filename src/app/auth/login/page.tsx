@@ -1,5 +1,7 @@
 import { auth, signIn } from "@/auth";
 import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,12 +18,14 @@ import Link from "next/link";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }) {
   const session = await auth();
   if (session?.user) redirect("/");
 
-  const { error } = await searchParams;
+  const { error, message } = await searchParams;
+
+  const [existingUser] = await db.select({ id: users.id }).from(users).limit(1);
 
   return (
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
@@ -67,6 +71,17 @@ export default async function LoginPage({
                 required
               />
             </div>
+            <div className="text-right">
+              <Link
+                href="/auth/forgot-password"
+                className="text-xs font-medium text-[#69736D] underline underline-offset-4 hover:text-neutral-900"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            {message && (
+              <p className="text-sm text-green-700">{message}</p>
+            )}
             {error && (
               <p className="text-sm text-red-500">
                 Invalid email or password
@@ -81,10 +96,10 @@ export default async function LoginPage({
           <p className="text-sm text-neutral-500">
             Don&apos;t have an account?{" "}
             <Link
-              href="/auth/setup"
+              href={existingUser ? "/auth/register" : "/auth/setup"}
               className="font-medium underline underline-offset-4 hover:text-neutral-900 dark:hover:text-neutral-50"
             >
-              Set up now
+              {existingUser ? "Sign up" : "Set up now"}
             </Link>
           </p>
         </CardFooter>
