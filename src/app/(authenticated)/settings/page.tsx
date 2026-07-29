@@ -8,10 +8,16 @@ import {
 } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { StravaConnectionCard } from "@/components/integrations/strava-connection-card";
 import Link from "next/link";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ strava?: string; reason?: string }>;
+}) {
   const session = await auth();
+  const { strava, reason } = await searchParams;
 
   return (
     <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
@@ -65,6 +71,32 @@ export default async function SettingsPage() {
             Theme customization, notification preferences, and more will be
             available in a future update.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integrations</CardTitle>
+          <CardDescription>Connect external services</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {strava === "connected" && (
+            <p className="mb-4 text-sm text-green-700">
+              Strava connected successfully.
+            </p>
+          )}
+          {strava === "error" && (
+            <p className="mb-4 text-sm text-red-600">
+              Strava connection failed
+              {reason ? `: ${reason}` : "."}
+            </p>
+          )}
+          {strava === "denied" && (
+            <p className="mb-4 text-sm text-red-600">
+              Strava authorization was denied.
+            </p>
+          )}
+          <StravaConnectionCard />
         </CardContent>
       </Card>
       </div>

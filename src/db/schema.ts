@@ -9,6 +9,10 @@ import {
   primaryKey,
   pgEnum,
   index,
+  uniqueIndex,
+  bigint,
+  jsonb,
+  real,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 
@@ -496,5 +500,419 @@ export const notes = pgTable(
   (note) => ({
     userIdIdx: index("notes_user_id_idx").on(note.userId),
     archivedAtIdx: index("notes_archived_at_idx").on(note.archivedAt),
+  })
+);
+
+// ============================================================
+// Strava integration
+// ============================================================
+
+export const stravaConnectionStatusEnum = pgEnum("strava_connection_status", [
+  "PENDING",
+  "CONNECTED",
+  "EXPIRED",
+  "REVOKED",
+  "ERROR",
+]);
+
+export const stravaSyncJobTypeEnum = pgEnum("strava_sync_job_type", [
+  "BACKFILL",
+  "INCREMENTAL",
+  "RECONCILE",
+  "SINGLE_ACTIVITY",
+]);
+
+export const stravaSyncJobStatusEnum = pgEnum("strava_sync_job_status", [
+  "QUEUED",
+  "RUNNING",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+]);
+
+export const stravaWebhookEventStatusEnum = pgEnum(
+  "strava_webhook_event_status",
+  ["RECEIVED", "PROCESSING", "PROCESSED", "IGNORED", "FAILED"]
+);
+
+export const stravaConnections = pgTable(
+  "strava_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stravaAthleteId: bigint("strava_athlete_id", { mode: "number" }).notNull(),
+    status: stravaConnectionStatusEnum("status")
+      .default("PENDING")
+      .notNull(),
+    scopes: text("scopes"),
+    accessTokenEnc: text("access_token_enc"),
+    refreshTokenEnc: text("refresh_token_enc"),
+    tokenType: text("token_type"),
+    tokenExpiresAt: timestamp("token_expires_at", { mode: "date" }),
+    lastSyncedAt: timestamp("last_synced_at", { mode: "date" }),
+    lastError: text("last_error"),
+    disconnectedAt: timestamp("disconnected_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (conn) => ({
+    userIdx: uniqueIndex("strava_connections_user_id_idx").on(conn.userId),
+    stravaAthleteIdx: uniqueIndex(
+      "strava_connections_strava_athlete_id_idx"
+    ).on(conn.stravaAthleteId),
+    statusIdx: index("strava_connections_status_idx").on(conn.status),
+  })
+);
+
+export const stravaAthletes = pgTable(
+  "strava_athletes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => stravaConnections.id, { onDelete: "cascade" }),
+    stravaAthleteId: bigint("strava_athlete_id", { mode: "number" }).notNull(),
+    username: text("username"),
+    firstname: text("firstname"),
+    lastname: text("lastname"),
+    bio: text("bio"),
+    city: text("city"),
+    state: text("state"),
+    country: text("country"),
+    sex: text("sex"),
+    weight: real("weight"),
+    profile: text("profile"),
+    profileMedium: text("profile_medium"),
+    rawPayload: jsonb("raw_payload"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (athlete) => ({
+    stravaAthleteIdx: uniqueIndex("strava_athletes_strava_athlete_id_idx").on(
+      athlete.stravaAthleteId
+    ),
+    connectionIdx: index("strava_athletes_connection_id_idx").on(
+      athlete.connectionId
+    ),
+  })
+);
+
+export const stravaActivities = pgTable(
+  "strava_activities",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => stravaConnections.id, { onDelete: "cascade" }),
+    athleteId: uuid("athlete_id").references(() => stravaAthletes.id),
+    stravaActivityId: bigint("strava_activity_id", {
+      mode: "number",
+    }).notNull(),
+    name: text("name").notNull(),
+    sportType: text("sport_type"),
+    type: text("type"),
+    startDate: timestamp("start_date", { mode: "date" }),
+    startDateLocal: text("start_date_local"),
+    timezone: text("timezone"),
+    distance: real("distance"),
+    movingTime: integer("moving_time"),
+    elapsedTime: integer("elapsed_time"),
+    totalElevationGain: real("total_elevation_gain"),
+    averageSpeed: real("average_speed"),
+    maxSpeed: real("max_speed"),
+    averageHeartrate: real("average_heartrate"),
+    maxHeartrate: real("max_heartrate"),
+    averageWatts: real("average_watts"),
+    maxWatts: real("max_watts"),
+    weightedAverageWatts: real("weighted_average_watts"),
+    kilojoules: real("kilojoules"),
+    deviceWatts: boolean("device_watts"),
+    calories: real("calories"),
+    averageCadence: real("average_cadence"),
+    prCount: integer("pr_count"),
+    kudosCount: integer("kudos_count"),
+    commentCount: integer("comment_count"),
+    achievementCount: integer("achievement_count"),
+    commute: boolean("commute"),
+    trainer: boolean("trainer"),
+    manual: boolean("manual"),
+    private: boolean("private"),
+    visibility: text("visibility"),
+    gearId: text("gear_id"),
+    externalId: text("external_id"),
+    summaryPolyline: text("summary_polyline"),
+    rawPayload: jsonb("raw_payload"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (activity) => ({
+    stravaActivityIdx: uniqueIndex(
+      "strava_activities_strava_activity_id_idx"
+    ).on(activity.stravaActivityId),
+    connectionIdx: index("strava_activities_connection_id_idx").on(
+      activity.connectionId
+    ),
+    athleteIdx: index("strava_activities_athlete_id_idx").on(
+      activity.athleteId
+    ),
+    startDateIdx: index("strava_activities_start_date_idx").on(
+      activity.startDate
+    ),
+    sportTypeIdx: index("strava_activities_sport_type_idx").on(
+      activity.sportType
+    ),
+  })
+);
+
+export const stravaActivityStreams = pgTable(
+  "strava_activity_streams",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => stravaActivities.id, { onDelete: "cascade" }),
+    streamType: text("stream_type").notNull(),
+    data: jsonb("data"),
+    seriesType: text("series_type"),
+    originalSize: integer("original_size"),
+    resolution: text("resolution"),
+    rawPayload: jsonb("raw_payload"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (stream) => ({
+    activityTypeIdx: uniqueIndex(
+      "strava_activity_streams_activity_type_idx"
+    ).on(stream.activityId, stream.streamType),
+    activityIdx: index("strava_activity_streams_activity_id_idx").on(
+      stream.activityId
+    ),
+  })
+);
+
+export const stravaWebhookEvents = pgTable(
+  "strava_webhook_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventKey: text("event_key").notNull(),
+    objectType: text("object_type"),
+    objectId: bigint("object_id", { mode: "number" }),
+    aspectType: text("aspect_type"),
+    ownerResourceId: bigint("owner_resource_id", { mode: "number" }),
+    subscriptionId: integer("subscription_id"),
+    updates: jsonb("updates"),
+    eventTime: timestamp("event_time", { mode: "date" }),
+    status: stravaWebhookEventStatusEnum("status")
+      .default("RECEIVED")
+      .notNull(),
+    processedAt: timestamp("processed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (event) => ({
+    eventKeyIdx: uniqueIndex("strava_webhook_events_event_key_idx").on(
+      event.eventKey
+    ),
+    statusIdx: index("strava_webhook_events_status_idx").on(event.status),
+    ownerIdx: index("strava_webhook_events_owner_id_idx").on(
+      event.ownerResourceId
+    ),
+  })
+);
+
+export const stravaSyncJobs = pgTable(
+  "strava_sync_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => stravaConnections.id, { onDelete: "cascade" }),
+    type: stravaSyncJobTypeEnum("type").notNull(),
+    status: stravaSyncJobStatusEnum("status").default("QUEUED").notNull(),
+    trigger: text("trigger"),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    finishedAt: timestamp("finished_at", { mode: "date" }),
+    activitiesProcessed: integer("activities_processed").default(0),
+    error: text("error"),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (job) => ({
+    connectionIdx: index("strava_sync_jobs_connection_id_idx").on(
+      job.connectionId
+    ),
+    statusIdx: index("strava_sync_jobs_status_idx").on(job.status),
+    createdAtIdx: index("strava_sync_jobs_created_at_idx").on(job.createdAt),
+  })
+);
+
+// ============================================================
+// Apple Health integration
+// ============================================================
+
+export const appleHealthConnectionStatusEnum = pgEnum(
+  "apple_health_connection_status",
+  ["PENDING", "CONNECTED", "ERROR"]
+);
+
+export const appleHealthImportJobStatusEnum = pgEnum(
+  "apple_health_import_job_status",
+  ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]
+);
+
+export const appleHealthConnections = pgTable(
+  "apple_health_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: appleHealthConnectionStatusEnum("status")
+      .default("PENDING")
+      .notNull(),
+    deviceName: text("device_name"),
+    exportDate: timestamp("export_date", { mode: "date" }),
+    lastImportedAt: timestamp("last_imported_at", { mode: "date" }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (conn) => ({
+    userIdx: uniqueIndex("apple_health_connections_user_id_idx").on(
+      conn.userId
+    ),
+    statusIdx: index("apple_health_connections_status_idx").on(conn.status),
+  })
+);
+
+export const appleHealthImportJobs = pgTable(
+  "apple_health_import_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => appleHealthConnections.id, { onDelete: "cascade" }),
+    status: appleHealthImportJobStatusEnum("status")
+      .default("QUEUED")
+      .notNull(),
+    trigger: text("trigger"),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    finishedAt: timestamp("finished_at", { mode: "date" }),
+    workoutsInserted: integer("workouts_inserted").default(0),
+    samplesInserted: integer("samples_inserted").default(0),
+    streamsInserted: integer("streams_inserted").default(0),
+    duplicatesSkipped: integer("duplicates_skipped").default(0),
+    error: text("error"),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (job) => ({
+    connectionIdx: index("apple_health_import_jobs_connection_id_idx").on(
+      job.connectionId
+    ),
+    statusIdx: index("apple_health_import_jobs_status_idx").on(job.status),
+    createdAtIdx: index("apple_health_import_jobs_created_at_idx").on(
+      job.createdAt
+    ),
+  })
+);
+
+export const appleHealthWorkouts = pgTable(
+  "apple_health_workouts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => appleHealthConnections.id, { onDelete: "cascade" }),
+    dedupKey: text("dedup_key").notNull(),
+    activityType: text("activity_type").notNull(),
+    startDate: timestamp("start_date", { mode: "date" }),
+    endDate: timestamp("end_date", { mode: "date" }),
+    duration: real("duration"),
+    durationUnit: text("duration_unit"),
+    totalDistance: real("total_distance"),
+    distanceUnit: text("distance_unit"),
+    totalEnergyBurned: real("total_energy_burned"),
+    energyUnit: text("energy_unit"),
+    sourceName: text("source_name"),
+    sourceVersion: text("source_version"),
+    deviceName: text("device_name"),
+    creationDate: timestamp("creation_date", { mode: "date" }),
+    metadata: jsonb("metadata"),
+    rawPayload: jsonb("raw_payload"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (workout) => ({
+    dedupKeyIdx: uniqueIndex("apple_health_workouts_dedup_key_idx").on(
+      workout.dedupKey
+    ),
+    connectionIdx: index("apple_health_workouts_connection_id_idx").on(
+      workout.connectionId
+    ),
+    startDateIdx: index("apple_health_workouts_start_date_idx").on(
+      workout.startDate
+    ),
+    activityTypeIdx: index("apple_health_workouts_activity_type_idx").on(
+      workout.activityType
+    ),
+  })
+);
+
+export const appleHealthSamples = pgTable(
+  "apple_health_samples",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => appleHealthConnections.id, { onDelete: "cascade" }),
+    dedupKey: text("dedup_key").notNull(),
+    recordType: text("record_type").notNull(),
+    startDate: timestamp("start_date", { mode: "date" }),
+    endDate: timestamp("end_date", { mode: "date" }),
+    value: real("value"),
+    unit: text("unit"),
+    sourceName: text("source_name"),
+    sourceVersion: text("source_version"),
+    deviceName: text("device_name"),
+    creationDate: timestamp("creation_date", { mode: "date" }),
+    metadata: jsonb("metadata"),
+    rawPayload: jsonb("raw_payload"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (sample) => ({
+    dedupKeyIdx: uniqueIndex("apple_health_samples_dedup_key_idx").on(
+      sample.dedupKey
+    ),
+    connectionIdx: index("apple_health_samples_connection_id_idx").on(
+      sample.connectionId
+    ),
+    recordTypeIdx: index("apple_health_samples_record_type_idx").on(
+      sample.recordType
+    ),
+    startDateIdx: index("apple_health_samples_start_date_idx").on(
+      sample.startDate
+    ),
+  })
+);
+
+export const appleHealthWorkoutStreams = pgTable(
+  "apple_health_workout_streams",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workoutId: uuid("workout_id")
+      .notNull()
+      .references(() => appleHealthWorkouts.id, { onDelete: "cascade" }),
+    streamType: text("stream_type").notNull(),
+    data: jsonb("data"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (stream) => ({
+    workoutTypeIdx: uniqueIndex(
+      "apple_health_workout_streams_workout_type_idx"
+    ).on(stream.workoutId, stream.streamType),
+    workoutIdx: index("apple_health_workout_streams_workout_id_idx").on(
+      stream.workoutId
+    ),
   })
 );
