@@ -20,6 +20,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+type ActivityRow = Awaited<ReturnType<typeof listActivitiesForUser>>[number];
+
 function formatDistance(meters: number | null | undefined) {
   if (!meters) return "—";
   return `${(meters / 1000).toLocaleString(undefined, {
@@ -57,23 +59,54 @@ function getSportMeta(sportType?: string | null): {
   bg: string;
 } {
   const value = (sportType ?? "").toUpperCase();
-  if (value.includes("RUN") || value.includes("WALK") || value.includes("HIK")) {
-    return { label: titleCase(value || "Run"), icon: Footprints, bg: "#FBD4E6" };
-  }
   if (value.includes("RIDE") || value.includes("BIKE") || value.includes("CYCLE")) {
     return { label: titleCase(value || "Ride"), icon: Bike, bg: "#E5DBFE" };
   }
-  if (value.includes("SWIM")) {
-    return { label: titleCase(value || "Swim"), icon: Activity, bg: "#ACCDFF" };
-  }
   if (value.includes("MOUNTAIN") || value.includes("TRAIL")) {
     return { label: titleCase(value || "Hike"), icon: Mountain, bg: "#D0E77F" };
+  }
+  if (value.includes("RUN") || value.includes("WALK") || value.includes("HIK")) {
+    return { label: titleCase(value || "Run"), icon: Footprints, bg: "#FBD4E6" };
+  }
+  if (value.includes("SWIM")) {
+    return { label: titleCase(value || "Swim"), icon: Activity, bg: "#ACCDFF" };
   }
   return {
     label: titleCase(value || "Activity"),
     icon: Activity,
     bg: "#EEF0F5",
   };
+}
+
+function getPerformanceStat(activity: ActivityRow): {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+} {
+  if (activity.averageSpeed && activity.distance && activity.distance > 0) {
+    const kmh = activity.averageSpeed * 3.6;
+    if (kmh >= 12) {
+      return { label: "Speed", value: `${kmh.toFixed(1)} km/h avg`, icon: Timer };
+    }
+    return {
+      label: "Pace",
+      value:
+        formatPace(
+          activity.movingTime && activity.distance
+            ? activity.movingTime / (activity.distance / 1000)
+            : null
+        ) ?? "—",
+      icon: Timer,
+    };
+  }
+  if (activity.averageHeartrate) {
+    return {
+      label: "Heart Rate",
+      value: `${Math.round(activity.averageHeartrate)} bpm avg`,
+      icon: HeartPulse,
+    };
+  }
+  return { label: "Pace", value: "—", icon: Timer };
 }
 
 function MetricCard({
@@ -133,16 +166,11 @@ function ActivityStat({
 function ActivityCard({
   activity,
 }: {
-  activity: Awaited<ReturnType<typeof listActivitiesForUser>>[number];
+  activity: ActivityRow;
 }) {
   const sport = getSportMeta(activity.sportType);
   const startAt = activity.startDate ?? activity.createdAt;
-  const performance =
-    activity.averageSpeed && activity.distance && activity.distance > 0
-      ? activity.averageSpeed * 3.6 >= 12
-        ? `${(activity.averageSpeed * 3.6).toFixed(1)} km/h avg`
-        : formatPace(activity.movingTime && activity.distance ? activity.movingTime / (activity.distance / 1000) : null) ?? "—"
-      : null;
+  const performance = getPerformanceStat(activity);
 
   return (
     <div className="rounded-[20px] bg-white p-4 sm:p-5">
@@ -184,11 +212,11 @@ function ActivityCard({
             <ActivityStat label="Distance" value={formatDistance(activity.distance)} icon={Activity} />
             <ActivityStat label="Moving" value={formatDuration(activity.movingTime)} icon={Timer} />
             <ActivityStat label="Elevation" value={activity.totalElevationGain ? `${Math.round(activity.totalElevationGain)} m` : "—"} icon={Mountain} />
-            <ActivityStat label="HR / Pace" value={performance ?? (activity.averageHeartrate ? `${Math.round(activity.averageHeartrate)} bpm avg` : "—")} icon={HeartPulse} />
+            <ActivityStat label={performance.label} value={performance.value} icon={performance.icon} />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#69736D]">
-            {activity.kudosCount !== null && activity.kudosCount !== undefined && (
+            {activity.kudosCount !== null && activity.kudosCount !== undefined && activity.kudosCount > 0 && (
               <span className="rounded-full bg-[#F7F8F5] px-2.5 py-1 font-medium">
                 {activity.kudosCount} kudos
               </span>
