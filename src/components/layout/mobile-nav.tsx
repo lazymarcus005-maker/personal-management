@@ -16,6 +16,7 @@ import {
   Settings,
   MoreHorizontal,
   LogOut,
+  Activity,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,6 +34,7 @@ const primaryItems = [
 
 const moreItems = [
   { href: "/finance", label: "Bills", description: "Recurring bills and expenses", icon: Receipt },
+  { href: "/activities", label: "Activities", description: "Synced workouts and runs", icon: Activity },
   { href: "/notes", label: "Notes", description: "Ideas and useful details", icon: FileText },
   { href: "/calendar", label: "Calendar", description: "Tasks and payment dates", icon: Calendar },
   { href: "/settings", label: "Settings", description: "Profile and preferences", icon: Settings },
