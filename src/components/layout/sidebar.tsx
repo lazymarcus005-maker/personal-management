@@ -16,6 +16,7 @@ import {
   LogOut,
   Repeat,
   WalletCards,
+  Activity,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
   { href: "/finance", label: "Bills", icon: Receipt },
   { href: "/credit-cards", label: "Credit Cards", icon: CreditCard },
+  { href: "/activities", label: "Activities", icon: Activity },
   { href: "/notes", label: "Notes", icon: FileText },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/settings", label: "Settings", icon: Settings },
