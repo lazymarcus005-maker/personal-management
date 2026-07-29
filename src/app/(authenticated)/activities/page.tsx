@@ -297,10 +297,6 @@ export default async function ActivitiesPage({
     ? new Date(summary.latestActivityAt)
     : activities[0]?.startDate ?? null;
 
-  const latestSyncLabel = latestSyncJob
-    ? `${titleCase(latestSyncJob.type)} · ${titleCase(latestSyncJob.status)}`
-    : "No sync jobs yet";
-
   if (!connection) {
     return (
       <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
@@ -309,7 +305,7 @@ export default async function ActivitiesPage({
             <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A847E]">
               Activities
             </p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-[#13141A] sm:text-3xl">
               Activity Library
             </h1>
             <p className="mt-1 text-sm text-[#69736D]">
@@ -332,12 +328,6 @@ export default async function ActivitiesPage({
                   <Link
                     href="/settings"
                     className="inline-flex items-center justify-center rounded-full bg-[#18201C] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2B352F]"
-                  >
-                    Open settings
-                  </Link>
-                  <Link
-                    href="/settings"
-                    className="inline-flex items-center justify-center rounded-full bg-[#F7F8F5] px-4 py-2.5 text-sm font-semibold text-[#18201C] transition-colors hover:bg-[#EEF0EB]"
                   >
                     Connect Strava
                   </Link>
@@ -384,7 +374,9 @@ export default async function ActivitiesPage({
               {formatDistance(summary?.totalDistance ?? 0)}
             </p>
             <p className="mt-1 text-sm opacity-70">
-              {visibleActivities.length} visible activities · {latestSyncLabel}
+              {visibleActivities.length === activities.length
+                ? "All activities shown"
+                : `${visibleActivities.length} of ${activities.length} activities shown`}
             </p>
           </div>
           <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full border-2 border-[#13141A]/10" />
@@ -478,10 +470,33 @@ export default async function ActivitiesPage({
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF0F5]">
               <AlertCircle className="h-5 w-5 text-[#13141A]" />
             </div>
-            <p className="font-semibold text-[#13141A]">No activities in this filter</p>
-            <p className="mt-1 text-sm text-[#69736D]">
-              Try another sport type or sync more data from Strava.
-            </p>
+            {activities.length === 0 ? (
+              <>
+                <p className="font-semibold text-[#13141A]">No activities yet</p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-[#69736D]">
+                  Run a sync from settings to pull in your latest workouts from Strava.
+                </p>
+                <Link
+                  href="/settings"
+                  className="mt-4 inline-flex items-center justify-center rounded-full bg-[#18201C] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2B352F]"
+                >
+                  Open sync settings
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-[#13141A]">No activities match this filter</p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-[#69736D]">
+                  Try another sport type, or clear the filter to see everything.
+                </p>
+                <Link
+                  href="/activities"
+                  className="mt-4 inline-flex items-center justify-center rounded-full bg-[#F7F8F5] px-4 py-2.5 text-sm font-semibold text-[#18201C] transition-colors hover:bg-[#EEF0EB]"
+                >
+                  Clear filter
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
