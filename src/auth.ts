@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import authConfig from "@/auth.config";
 
 // ---------------------------------------------------------------------------
 // Lightweight brute-force mitigation.
@@ -12,6 +13,7 @@ import { z } from "zod";
 // This is an in-memory sliding-window throttle keyed by email. It slows down
 // credential stuffing / password guessing for single-instance / self-hosted
 // deployments. It is intentionally dependency-free.
+//
 //
 // NOTE: In-memory state is per-process and does NOT survive across serverless
 // instances or restarts. For a horizontally-scaled or serverless production
@@ -44,6 +46,7 @@ function registerFailure(key: string): void {
 }
 
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -96,35 +99,4 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       },
     }),
   ],
-  // trustHost lets NextAuth derive the callback URL from the request Host
-  // header. It is required for self-hosted / reverse-proxied deployments
-  // (Docker, Vercel behind a custom proxy) where AUTH_URL is not pinned.
-  //
-  // PRODUCTION NOTE: only safe when a trusted proxy sets X-Forwarded-Host /
-  // Host. If the app is ever exposed directly to untrusted clients, pin the
-  // canonical origin via the AUTH_URL env var and set trustHost: false to
-  // prevent Host-header spoofing of auth/callback URLs.
-  trustHost: true,
-  pages: {
-    signIn: "/auth/login",
-  },
-  callbacks: {
-    session({ session, token }) {
-      if (token.sub) session.user.id = token.sub;
-      return session;
-    },
-    jwt({ token, user, trigger, session }) {
-      if (user) token.sub = user.id;
-      // Allow account settings to push updated name/email into the active
-      // session via unstable_update() without requiring a full re-login.
-      if (trigger === "update" && session?.user) {
-        if (session.user.name !== undefined) token.name = session.user.name;
-        if (session.user.email !== undefined) token.email = session.user.email;
-      }
-      return token;
-    },
-  },
-  session: {
-    strategy: "jwt",
-  },
 });

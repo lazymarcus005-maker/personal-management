@@ -20,6 +20,7 @@ const creditCardSchema = z.object({
   paymentDueDay: z.number().min(1).max(31),
   color: z.string().optional(),
   notes: z.string().optional(),
+  logoUrl: z.string().url().optional().or(z.literal("")),
 });
 
 export async function getCreditCards() {
@@ -54,6 +55,7 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
       paymentDueDay: parsed.paymentDueDay,
       color: parsed.color,
       notes: parsed.notes,
+      logoUrl: parsed.logoUrl || null,
     })
     .returning();
 
@@ -70,9 +72,17 @@ export async function updateCreditCard(
 
   const db = await getDb();
 
+  const updateData: Partial<typeof creditCards.$inferInsert> = {
+    ...data,
+    updatedAt: new Date(),
+  };
+  if (typeof updateData.logoUrl === "string") {
+    updateData.logoUrl = updateData.logoUrl || null;
+  }
+
   const [card] = await db
     .update(creditCards)
-    .set({ ...data, updatedAt: new Date() })
+    .set(updateData)
     .where(and(eq(creditCards.id, id), eq(creditCards.userId, session.user.id)))
     .returning();
 

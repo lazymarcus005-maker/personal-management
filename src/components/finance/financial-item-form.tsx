@@ -42,6 +42,7 @@ const formSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
   autoRenew: z.boolean(),
+  logoUrl: z.string().url("Enter a valid URL").optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -55,6 +56,7 @@ export function FinancialItemForm() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -63,8 +65,11 @@ export function FinancialItemForm() {
       currency: "THB",
       billingCycle: "MONTHLY",
       autoRenew: false,
+      logoUrl: "",
     },
   });
+
+  const logoUrl = watch("logoUrl");
 
   const onSubmit = handleSubmit((data) => {
     startTransition(async () => {
@@ -141,6 +146,33 @@ export function FinancialItemForm() {
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Input id="description" {...register("description")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="logoUrl">Logo URL</Label>
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover shrink-0 bg-[#EEF0F5]"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                  onLoad={(e) => {
+                    e.currentTarget.style.visibility = "visible";
+                  }}
+                />
+              )}
+              <Input
+                id="logoUrl"
+                placeholder="https://example.com/logo.png"
+                {...register("logoUrl")}
+              />
+            </div>
+            {errors.logoUrl && (
+              <p className="text-xs text-red-500">{errors.logoUrl.message}</p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
