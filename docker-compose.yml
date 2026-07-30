@@ -27,7 +27,7 @@ services:
       HOSTNAME: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL:-postgresql://finance:finance@db:5432/finance_pojs}
       AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
 
 volumes:
   pgdata:
