@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { financialItems } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { FinancialItemForm } from "@/components/finance/financial-item-form";
+import { BillLogo } from "@/components/finance/bill-logo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Receipt,
@@ -204,20 +205,7 @@ function FinancialItemCard({
   return (
     <div className="rounded-[20px] bg-white p-4 flex items-center gap-4">
       <div className="w-12 h-12 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0 overflow-hidden">
-        {item.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.logoUrl}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-          />
-        ) : (
-          // eslint-disable-next-line react-hooks/static-components
-          <Icon className="w-5 h-5 text-[#13141A]" />
-        )}
+        <BillLogo logoUrl={item.logoUrl} fallbackIcon={Icon} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
