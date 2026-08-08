@@ -282,8 +282,20 @@ export default async function DashboardPage() {
                     key={bill.id}
                     className="rounded-[20px] bg-white p-4 flex items-center gap-4"
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0">
-                      <Receipt className="w-4 h-4 text-[#13141A]" />
+                    <div className="w-10 h-10 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0 overflow-hidden">
+                      {bill.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={bill.logoUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <Receipt className="w-4 h-4 text-[#13141A]" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-[#13141A] text-sm truncate">
