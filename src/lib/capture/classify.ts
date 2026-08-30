@@ -87,15 +87,22 @@ function detectAmount(raw: string): { amount: number | null; currency: string } 
 function detectDueDate(raw: string, now: Date): string | null {
   const startOfDay = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const localDateKey = (d: Date) => {
+    // Local calendar date, never an ISO instant — a UTC round-trip would
+    // shift the day for users east of UTC.
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${month}-${day}`;
+  };
   if (/พรุ่งนี้|tomorrow/i.test(raw)) {
     const d = startOfDay(now);
     d.setDate(d.getDate() + 1);
-    return d.toISOString();
+    return localDateKey(d);
   }
   if (/มะรืน|day after tomorrow/i.test(raw)) {
     const d = startOfDay(now);
     d.setDate(d.getDate() + 2);
-    return d.toISOString();
+    return localDateKey(d);
   }
   return null;
 }

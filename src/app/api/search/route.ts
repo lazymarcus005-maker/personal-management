@@ -303,7 +303,9 @@ export async function GET(request: NextRequest) {
               userScope(financialAccounts),
               or(
                 ilike(financialAccounts.name, searchTerm),
-                ilike(financialAccounts.type, searchTerm)
+                // `type` is a PostgreSQL enum — cast to text or ILIKE fails
+                // with an operator-resolution error.
+                sql`${financialAccounts.type}::text ILIKE ${searchTerm}`
               ),
               ...createdRange("financial_accounts.created_at")
             )
@@ -450,5 +452,15 @@ export async function GET(request: NextRequest) {
     })),
   ].filter((r) => isEntityType(r.entity_type) || r.entity_type === "TAG");
 
-  return Response.json({ results });
+  // Final context check. Queries that have the joins already push these
+  // predicates before their limit; this catches the queries without
+  // area/project context (journal, bills, accounts, areas, tags) and project
+  // results, which must not appear when a context filter is active.
+  const filtered = results.filter(
+    (r) =>
+      (!areaFilter || r.area === areaFilter) &&
+      (!projectFilter || r.project === projectFilter)
+  );
+
+  return Response.json({ results: filtered });
 }

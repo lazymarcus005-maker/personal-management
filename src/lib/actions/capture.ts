@@ -16,8 +16,28 @@ import { and, eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { classifyCapture } from "@/lib/capture/classify";
-import type { CaptureSuggestion } from "@/lib/capture/classify";
-import { isEntityType } from "@/lib/entity-registry";
+import type {
+  CaptureSuggestion,
+  CaptureSuggestionType,
+} from "@/lib/capture/classify";
+
+/**
+ * Types the capture flow (classifier + composer) produces. These are capture
+ * vocabulary, not registry entity names — EXPENSE/INCOME become transactions
+ * and IDEA becomes an idea note only at persistence time.
+ */
+const CAPTURE_TYPES: readonly CaptureSuggestionType[] = [
+  "TODO",
+  "EXPENSE",
+  "INCOME",
+  "JOURNAL_ENTRY",
+  "IDEA",
+  "NOTE",
+];
+
+function isCaptureType(value: string): value is CaptureSuggestionType {
+  return (CAPTURE_TYPES as readonly string[]).includes(value);
+}
 
 /**
  * Classifies raw text without persisting anything so the user can review and
@@ -48,7 +68,7 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
   const db = await getDb();
   const parsed = saveCaptureSchema.parse(data);
 
-  if (!isEntityType(parsed.type)) {
+  if (!isCaptureType(parsed.type)) {
     throw new Error(`Unsupported capture type: ${parsed.type}`);
   }
 
