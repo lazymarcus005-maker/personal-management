@@ -81,7 +81,10 @@ export function CaptureComposer({
     setSaved(null);
     startTransition(async () => {
       try {
-        const s = await classifyCaptureText(rawText);
+        const s = await classifyCaptureText(
+          rawText,
+          Intl.DateTimeFormat().resolvedOptions().timeZone
+        );
         applySuggestion(s);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Classification failed");

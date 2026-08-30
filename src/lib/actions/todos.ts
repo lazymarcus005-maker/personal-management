@@ -93,11 +93,13 @@ export async function createTodo(data: z.infer<typeof todoSchema>) {
 
 export async function updateTodo(
   id: string,
-  data: Partial<z.infer<typeof todoSchema>>
+  rawData: Partial<z.infer<typeof todoSchema>>
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = todoSchema.partial().parse(rawData);
   const { dueAt, ...rest } = data;
   const updateData: Partial<typeof todos.$inferInsert> = {
     ...rest,

@@ -103,11 +103,15 @@ export async function updateProject(
   const userId = await requireUserId();
   const db = await getDb();
 
-  if (data.areaId) {
+  // A crafted server-action payload is not constrained by TypeScript —
+  // parse before spreading so fields like userId can't be injected.
+  const parsed = projectSchema.partial().parse(data);
+
+  if (parsed.areaId) {
     const [area] = await db
       .select({ id: areas.id })
       .from(areas)
-      .where(and(eq(areas.id, data.areaId), eq(areas.userId, userId)));
+      .where(and(eq(areas.id, parsed.areaId), eq(areas.userId, userId)));
     if (!area) throw new Error("Area not found");
   }
 
@@ -115,7 +119,7 @@ export async function updateProject(
     startDate,
     targetDate,
     ...rest
-  } = data;
+  } = parsed;
   const updateData: Partial<typeof projects.$inferInsert> = {
     ...rest,
     updatedAt: new Date(),

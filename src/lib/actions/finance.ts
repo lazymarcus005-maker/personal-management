@@ -95,11 +95,14 @@ export async function createFinancialItem(
 
 export async function updateFinancialItem(
   id: string,
-  data: Partial<z.infer<typeof financialItemSchema>>
+  rawData: Partial<z.infer<typeof financialItemSchema>>
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
+
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = financialItemSchema.partial().parse(rawData);
 
   const {
     startDate,
@@ -116,17 +119,22 @@ export async function updateFinancialItem(
     updateData.endDate = endDate ? new Date(endDate) : null;
   }
 
-  if (paymentMethodId) {
-    const [method] = await db
-      .select({ id: paymentMethods.id })
-      .from(paymentMethods)
-      .where(
-        and(
-          eq(paymentMethods.id, paymentMethodId),
-          eq(paymentMethods.userId, session.user.id)
-        )
-      );
-    if (!method) throw new Error("Payment method not found");
+  if (paymentMethodId !== undefined) {
+    if (paymentMethodId) {
+      const [method] = await db
+        .select({ id: paymentMethods.id })
+        .from(paymentMethods)
+        .where(
+          and(
+            eq(paymentMethods.id, paymentMethodId),
+            eq(paymentMethods.userId, session.user.id)
+          )
+        );
+      if (!method) throw new Error("Payment method not found");
+    }
+    // Keep the validated id (or an explicit null clearing it) in the update —
+    // validating alone used to leave the old association untouched.
+    updateData.paymentMethodId = paymentMethodId;
   }
 
   const [item] = await db

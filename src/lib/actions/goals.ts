@@ -70,7 +70,7 @@ export async function createGoal(data: z.infer<typeof goalSchema>) {
 
 export async function updateGoal(
   id: string,
-  data: Partial<z.infer<typeof goalSchema>>
+  rawData: Partial<z.infer<typeof goalSchema>>
 ) {
   const userId = await requireUserId();
   const db = await getDb();
@@ -81,6 +81,8 @@ export async function updateGoal(
     .where(and(eq(goals.id, id), eq(goals.userId, userId)));
   if (!existing) throw new Error("Not found");
 
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = goalSchema.partial().parse(rawData);
   await assertRelatedEntitiesOwned(db, userId, data.areaId, data.projectId);
 
   const { targetDate, ...rest } = data;

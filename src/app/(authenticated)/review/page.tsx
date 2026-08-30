@@ -94,7 +94,10 @@ export default async function ReviewPage({
         and(
           eq(financialTransactions.userId, userId),
           isNull(financialTransactions.deletedAt),
-          gte(financialTransactions.transactionDate, periodStart)
+          gte(financialTransactions.transactionDate, periodStart),
+          // Exclude future-dated transactions so period totals match the
+          // category/area breakdowns, which already bound by periodEnd.
+          lt(financialTransactions.transactionDate, periodEnd)
         )
       ),
     db

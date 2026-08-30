@@ -58,11 +58,13 @@ export async function createJournalEntry(data: z.infer<typeof journalSchema>) {
 
 export async function updateJournalEntry(
   id: string,
-  data: Partial<z.infer<typeof journalSchema>>
+  rawData: Partial<z.infer<typeof journalSchema>>
 ) {
   const userId = await requireUserId();
   const db = await getDb();
 
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = journalSchema.partial().parse(rawData);
   const { entryDate, ...rest } = data;
   const updateData: Partial<typeof journalEntries.$inferInsert> = {
     ...rest,

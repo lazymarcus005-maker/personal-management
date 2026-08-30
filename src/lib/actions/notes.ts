@@ -91,21 +91,31 @@ export async function createNote(data: z.infer<typeof noteSchema>) {
 
 export async function updateNote(
   id: string,
-  data: Partial<z.infer<typeof noteSchema> & { isPinned: boolean; isFavorite: boolean }>
+  rawData: Partial<z.infer<typeof noteSchema> & { isPinned: boolean; isFavorite: boolean }>
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
+
+  // Parse before spreading so crafted payloads can't inject table fields;
+  // the two flags live outside noteSchema, so pick them explicitly.
+  const { isPinned, isFavorite, ...schemaFields } = rawData;
+  const data = noteSchema.partial().parse(schemaFields);
   await assertContextOwned(
     db,
     session.user.id,
-    data.areaId as string | null | undefined,
-    data.projectId as string | null | undefined
+    data.areaId,
+    data.projectId
   );
 
   const [note] = await db
     .update(notes)
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+      ...data,
+      ...(isPinned !== undefined ? { isPinned } : {}),
+      ...(isFavorite !== undefined ? { isFavorite } : {}),
+      updatedAt: new Date(),
+    })
     .where(and(eq(notes.id, id), eq(notes.userId, session.user.id)))
     .returning();
 

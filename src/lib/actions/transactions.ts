@@ -64,11 +64,13 @@ export async function createAccount(data: z.infer<typeof accountSchema>) {
 
 export async function updateAccount(
   id: string,
-  data: Partial<z.infer<typeof accountSchema>>
+  rawData: Partial<z.infer<typeof accountSchema>>
 ) {
   const userId = await requireUserId();
   const db = await getDb();
 
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = accountSchema.partial().parse(rawData);
   const [account] = await db
     .update(financialAccounts)
     .set({ ...data, updatedAt: new Date() })

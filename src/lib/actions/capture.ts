@@ -42,13 +42,28 @@ function isCaptureType(value: string): value is CaptureSuggestionType {
 /**
  * Classifies raw text without persisting anything so the user can review and
  * override the suggestion before saving (manual classification before save).
+ *
+ * `timezone` is the browser's IANA zone so date-relative suggestions like
+ * "tomorrow" are computed on the user's calendar, not the server's.
  */
 export async function classifyCaptureText(
-  rawText: string
+  rawText: string,
+  timezone?: string
 ): Promise<CaptureSuggestion> {
   await requireUserId();
   const trimmed = z.string().min(1).max(2000).parse(rawText);
-  return classifyCapture(trimmed);
+  const now = clientNow(timezone);
+  return classifyCapture(trimmed, now);
+}
+
+/** Shifts "now" into the client's timezone for local calendar math. */
+function clientNow(timezone?: string): Date {
+  if (!timezone) return new Date();
+  try {
+    return new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+  } catch {
+    return new Date();
+  }
 }
 
 const saveCaptureSchema = z.object({
@@ -72,9 +87,10 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
     throw new Error(`Unsupported capture type: ${parsed.type}`);
   }
 
-  // Duplicate guard: the same raw text must not create two records while the
-  // previous capture is still unprocessed in the inbox.
-  const [duplicate] = await db
+  // Duplicate guard: if the same raw text is still sitting unprocessed in
+  // the inbox, this save converts that existing row instead of creating a
+  // second capture record (or silently refusing to create the entity).
+  const [pendingInboxItem] = await db
     .select({ id: captureItems.id })
     .from(captureItems)
     .where(
@@ -84,7 +100,6 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
         eq(captureItems.status, "NEW")
       )
     );
-  if (duplicate) return { captureId: duplicate.id, entityId: null, duplicate: true };
 
   if (parsed.areaId) {
     const [area] = await db
@@ -100,9 +115,12 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
       .where(and(eq(projects.id, parsed.projectId), eq(projects.userId, userId)));
     if (!project) throw new Error("Project not found");
   }
+  // Keep the account currency: the balance adjustment must happen in the
+  // same currency the balance is denominated in, or net worth corrupts.
+  let accountCurrency: string | null = null;
   if (parsed.accountId) {
     const [account] = await db
-      .select({ id: financialAccounts.id })
+      .select({ id: financialAccounts.id, currency: financialAccounts.currency })
       .from(financialAccounts)
       .where(
         and(
@@ -111,6 +129,7 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
         )
       );
     if (!account) throw new Error("Account not found");
+    accountCurrency = account.currency ?? null;
   }
 
   // Parent entity and inbox record are created atomically.
@@ -138,6 +157,10 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
       }
       entityType = "TRANSACTION";
       const txnType = parsed.type === "INCOME" ? "INCOME" : "EXPENSE";
+      // The amount is applied to the account balance, so record it in the
+      // account's currency — a classifier-detected foreign currency would
+      // otherwise add an unconverted amount to the balance.
+      const currency = accountCurrency ?? parsed.currency ?? "THB";
       const [txn] = await tx
         .insert(financialTransactions)
         .values({
@@ -145,7 +168,7 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
           accountId: parsed.accountId,
           type: txnType,
           amount: parsed.amount.toFixed(2),
-          currency: parsed.currency ?? "THB",
+          currency,
           transactionDate: new Date(),
           description: parsed.title,
           areaId: parsed.areaId ?? null,
@@ -189,25 +212,54 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
       entityType = "NOTE";
     }
 
-    const [capture] = await tx
-      .insert(captureItems)
-      .values({
-        userId,
-        rawText: parsed.rawText,
-        suggestedType: parsed.type,
-        payload: {
-          title: parsed.title,
-          amount: parsed.amount ?? null,
-          currency: parsed.currency ?? "THB",
-          dueDate: parsed.dueDate ?? null,
-        },
-        status: "CONVERTED",
-        convertedEntityType: entityType,
-        convertedEntityId: entityId,
-      })
-      .returning();
+    let captureId: string;
+    if (pendingInboxItem) {
+      // Convert the deferred inbox row: it becomes the record for this entity.
+      const [updated] = await tx
+        .update(captureItems)
+        .set({
+          suggestedType: parsed.type,
+          payload: {
+            title: parsed.title,
+            amount: parsed.amount ?? null,
+            currency: parsed.currency ?? "THB",
+            dueDate: parsed.dueDate ?? null,
+          },
+          status: "CONVERTED",
+          convertedEntityType: entityType,
+          convertedEntityId: entityId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(captureItems.id, pendingInboxItem.id),
+            eq(captureItems.userId, userId)
+          )
+        )
+        .returning();
+      captureId = updated.id;
+    } else {
+      const [capture] = await tx
+        .insert(captureItems)
+        .values({
+          userId,
+          rawText: parsed.rawText,
+          suggestedType: parsed.type,
+          payload: {
+            title: parsed.title,
+            amount: parsed.amount ?? null,
+            currency: parsed.currency ?? "THB",
+            dueDate: parsed.dueDate ?? null,
+          },
+          status: "CONVERTED",
+          convertedEntityType: entityType,
+          convertedEntityId: entityId,
+        })
+        .returning();
+      captureId = capture.id;
+    }
 
-    return { captureId: capture.id, entityId, duplicate: false };
+    return { captureId, entityId, duplicate: false };
   });
 
   revalidatePath("/capture");

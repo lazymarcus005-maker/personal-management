@@ -46,11 +46,13 @@ export async function createArea(data: z.infer<typeof areaSchema>) {
 
 export async function updateArea(
   id: string,
-  data: Partial<z.infer<typeof areaSchema>>
+  rawData: Partial<z.infer<typeof areaSchema>>
 ) {
   const userId = await requireUserId();
   const db = await getDb();
 
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = areaSchema.partial().parse(rawData);
   const [area] = await db
     .update(areas)
     .set({ ...data, updatedAt: new Date() })
