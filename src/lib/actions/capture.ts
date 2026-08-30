@@ -132,6 +132,23 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
     accountCurrency = account.currency ?? null;
   }
 
+  // No exchange-rate conversion exists in this system, so a capture whose
+  // detected currency differs from the account's must be rejected instead of
+  // silently relabeling the numeric amount and corrupting the balance.
+  const isTransactionType = parsed.type === "EXPENSE" || parsed.type === "INCOME";
+  if (
+    isTransactionType &&
+    parsed.amount &&
+    accountCurrency &&
+    parsed.currency &&
+    parsed.currency !== accountCurrency
+  ) {
+    throw new Error(
+      `Amount is in ${parsed.currency} but account "${parsed.accountId}" is in ${accountCurrency}. ` +
+        `Enter the amount in ${accountCurrency} or pick an account in ${parsed.currency}.`
+    );
+  }
+
   // Parent entity and inbox record are created atomically.
   const result = await db.transaction(async (tx) => {
     let entityType: string = parsed.type;
@@ -151,15 +168,14 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
         })
         .returning();
       entityId = todo.id;
-    } else if (parsed.type === "EXPENSE" || parsed.type === "INCOME" || parsed.type === "TRANSACTION") {
+    } else if (parsed.type === "EXPENSE" || parsed.type === "INCOME") {
       if (!parsed.accountId || !parsed.amount) {
         throw new Error("Account and amount are required for transactions");
       }
       entityType = "TRANSACTION";
       const txnType = parsed.type === "INCOME" ? "INCOME" : "EXPENSE";
-      // The amount is applied to the account balance, so record it in the
-      // account's currency — a classifier-detected foreign currency would
-      // otherwise add an unconverted amount to the balance.
+      // Currencies were verified to match above, so the amount applies to
+      // the balance in its own denomination.
       const currency = accountCurrency ?? parsed.currency ?? "THB";
       const [txn] = await tx
         .insert(financialTransactions)

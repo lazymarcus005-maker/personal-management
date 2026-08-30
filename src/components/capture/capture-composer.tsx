@@ -103,7 +103,13 @@ export function CaptureComposer({
           title,
           amount: amount ? Number(amount) : null,
           currency: suggestion?.currency ?? "THB",
-          dueDate: type === "TODO" && dueDate ? new Date(dueDate).toISOString() : null,
+          // "2026-08-31" alone parses as UTC midnight, which is August 30 for
+          // users west of UTC — anchor the instant at the client's local
+          // midnight so the stored due date is the day the user picked.
+          dueDate:
+            type === "TODO" && dueDate
+              ? new Date(`${dueDate}T00:00:00`).toISOString()
+              : null,
           accountId: accountId || null,
           areaId: areaId || null,
           projectId: projectId || null,

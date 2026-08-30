@@ -243,7 +243,9 @@ export function TransactionForm({
           accountId: form.accountId,
           categoryId: form.categoryId === "none" ? null : form.categoryId,
           currency: "THB",
-          transactionDate: form.transactionDate,
+          // Anchor at the client's local midnight — a bare date key would be
+          // parsed as UTC midnight and shift the day for UTC-west users.
+          transactionDate: new Date(`${form.transactionDate}T00:00:00`).toISOString(),
           merchant: form.merchant || undefined,
           description: form.description || undefined,
           areaId: form.areaId === "none" ? null : form.areaId,

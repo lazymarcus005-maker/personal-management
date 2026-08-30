@@ -56,7 +56,9 @@ export function JournalForm() {
     startTransition(async () => {
       try {
         await createJournalEntry({
-          entryDate: form.entryDate,
+          // Anchor at the client's local midnight — a bare date key would be
+          // parsed as UTC midnight and shift the day for UTC-west users.
+          entryDate: new Date(`${form.entryDate}T00:00:00`).toISOString(),
           title: form.title || undefined,
           content: form.content || undefined,
           mood: form.mood,
