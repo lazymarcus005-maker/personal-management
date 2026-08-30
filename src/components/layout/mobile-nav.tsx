@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  CalendarDays,
   ListTodo,
   Repeat,
   Receipt,
@@ -17,6 +17,11 @@ import {
   MoreHorizontal,
   LogOut,
   Activity,
+  Zap,
+  Compass,
+  FolderKanban,
+  LineChart,
+  NotebookPen,
 } from "lucide-react";
 import {
   Dialog,
@@ -26,14 +31,19 @@ import {
 } from "@/components/ui/dialog";
 
 const primaryItems = [
-  { href: "/", label: "Home", icon: LayoutDashboard },
-  { href: "/todos", label: "Tasks", icon: ListTodo },
-  { href: "/subscriptions", label: "Money", icon: Repeat },
-  { href: "/credit-cards", label: "Cards", icon: CreditCard },
+  { href: "/", label: "Today", icon: CalendarDays },
+  { href: "/capture", label: "Capture", icon: Zap },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/finance", label: "Finance", icon: Receipt },
 ];
 
 const moreItems = [
-  { href: "/finance", label: "Bills", description: "Recurring bills and expenses", icon: Receipt },
+  { href: "/explore", label: "Explore", description: "Search across everything", icon: Compass },
+  { href: "/review", label: "Review", description: "Weekly and monthly review", icon: LineChart },
+  { href: "/journal", label: "Journal", description: "Daily reflections", icon: NotebookPen },
+  { href: "/todos", label: "Todos", description: "Tasks and checklists", icon: ListTodo },
+  { href: "/subscriptions", label: "Subscriptions", description: "Recurring charges", icon: Repeat },
+  { href: "/credit-cards", label: "Credit Cards", description: "Cards and statements", icon: CreditCard },
   { href: "/activities", label: "Activities", description: "Synced workouts and runs", icon: Activity },
   { href: "/notes", label: "Notes", description: "Ideas and useful details", icon: FileText },
   { href: "/calendar", label: "Calendar", description: "Tasks and payment dates", icon: Calendar },

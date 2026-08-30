@@ -111,15 +111,21 @@ export async function updateProject(
     if (!area) throw new Error("Area not found");
   }
 
-  const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.startDate === "string")
-    updateData.startDate = new Date(updateData.startDate);
-  if (typeof updateData.targetDate === "string")
-    updateData.targetDate = new Date(updateData.targetDate);
+  const {
+    startDate,
+    targetDate,
+    ...rest
+  } = data;
+  const updateData: Partial<typeof projects.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof startDate === "string") updateData.startDate = new Date(startDate);
+  if (typeof targetDate === "string") updateData.targetDate = new Date(targetDate);
 
   const [project] = await db
     .update(projects)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(projects.id, id), eq(projects.userId, userId)))
     .returning();
 

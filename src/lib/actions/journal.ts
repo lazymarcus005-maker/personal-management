@@ -63,13 +63,16 @@ export async function updateJournalEntry(
   const userId = await requireUserId();
   const db = await getDb();
 
-  const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.entryDate === "string")
-    updateData.entryDate = new Date(updateData.entryDate);
+  const { entryDate, ...rest } = data;
+  const updateData: Partial<typeof journalEntries.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof entryDate === "string") updateData.entryDate = new Date(entryDate);
 
   const [entry] = await db
     .update(journalEntries)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
     .returning();
 

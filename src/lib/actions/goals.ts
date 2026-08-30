@@ -83,13 +83,16 @@ export async function updateGoal(
 
   await assertRelatedEntitiesOwned(db, userId, data.areaId, data.projectId);
 
-  const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.targetDate === "string")
-    updateData.targetDate = new Date(updateData.targetDate);
+  const { targetDate, ...rest } = data;
+  const updateData: Partial<typeof goals.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof targetDate === "string") updateData.targetDate = new Date(targetDate);
 
   const [goal] = await db
     .update(goals)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(goals.id, id), eq(goals.userId, userId)))
     .returning();
 

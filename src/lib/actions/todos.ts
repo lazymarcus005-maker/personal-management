@@ -98,14 +98,18 @@ export async function updateTodo(
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.dueAt === "string") updateData.dueAt = new Date(updateData.dueAt);
+  const { dueAt, ...rest } = data;
+  const updateData: Partial<typeof todos.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof dueAt === "string") updateData.dueAt = new Date(dueAt);
 
   const db = await getDb();
   await assertContextOwned(db, session.user.id, updateData.areaId, updateData.projectId);
   const [todo] = await db
     .update(todos)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(todos.id, id), eq(todos.userId, session.user.id)))
     .returning();
 

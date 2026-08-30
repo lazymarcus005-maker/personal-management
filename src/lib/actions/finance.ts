@@ -32,7 +32,11 @@ export async function getFinancialItems(type?: string) {
   const db = await getDb();
 
   const conditions = [eq(financialItems.userId, session.user.id)];
-  if (type) conditions.push(eq(financialItems.type, type as any));
+  if (type) {
+    conditions.push(
+      eq(financialItems.type, type as "RECURRING_BILL" | "SUBSCRIPTION")
+    );
+  }
 
   return db
     .select()
@@ -97,19 +101,28 @@ export async function updateFinancialItem(
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
 
-  const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.startDate === "string") updateData.startDate = new Date(updateData.startDate);
-  if (typeof updateData.endDate === "string") {
-    updateData.endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+  const {
+    startDate,
+    endDate,
+    paymentMethodId,
+    ...rest
+  } = data;
+  const updateData: Partial<typeof financialItems.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof startDate === "string") updateData.startDate = new Date(startDate);
+  if (typeof endDate === "string") {
+    updateData.endDate = endDate ? new Date(endDate) : null;
   }
 
-  if (updateData.paymentMethodId) {
+  if (paymentMethodId) {
     const [method] = await db
       .select({ id: paymentMethods.id })
       .from(paymentMethods)
       .where(
         and(
-          eq(paymentMethods.id, updateData.paymentMethodId as string),
+          eq(paymentMethods.id, paymentMethodId),
           eq(paymentMethods.userId, session.user.id)
         )
       );
@@ -118,7 +131,7 @@ export async function updateFinancialItem(
 
   const [item] = await db
     .update(financialItems)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(financialItems.id, id), eq(financialItems.userId, session.user.id)))
     .returning();
 
