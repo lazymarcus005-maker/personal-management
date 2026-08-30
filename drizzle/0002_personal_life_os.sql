@@ -142,8 +142,9 @@ CREATE TABLE "projects" (
 --> statement-breakpoint
 ALTER TABLE "financial_items" DROP CONSTRAINT "financial_items_payment_method_id_payment_methods_id_fk";
 --> statement-breakpoint
-ALTER TABLE "financial_items" ALTER COLUMN "status" SET DEFAULT 'ACTIVE'::"public"."financial_item_status";--> statement-breakpoint
+ALTER TABLE "financial_items" ALTER COLUMN "status" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "financial_items" ALTER COLUMN "status" SET DATA TYPE "public"."financial_item_status" USING "status"::"public"."financial_item_status";--> statement-breakpoint
+ALTER TABLE "financial_items" ALTER COLUMN "status" SET DEFAULT 'ACTIVE'::"public"."financial_item_status";--> statement-breakpoint
 ALTER TABLE "financial_items" ALTER COLUMN "status" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "notes" ADD COLUMN "area_id" uuid;--> statement-breakpoint
 ALTER TABLE "notes" ADD COLUMN "project_id" uuid;--> statement-breakpoint

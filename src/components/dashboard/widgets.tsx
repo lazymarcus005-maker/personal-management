@@ -84,8 +84,9 @@ const priorityDot: Record<string, string> = {
 
 export async function TasksDueTodayWidget({ userId }: { userId: string }) {
   const db = await getDb();
-  const today = new Date();
-  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
   const rows = await db
     .select()
@@ -95,7 +96,8 @@ export async function TasksDueTodayWidget({ userId }: { userId: string }) {
         eq(todos.userId, userId),
         eq(todos.status, "TODO"),
         isNull(todos.archivedAt),
-        sql`${todos.dueAt} IS NOT NULL AND ${todos.dueAt} < ${endOfDay.toISOString()}`
+        // Only the current day — overdue tasks have their own widget.
+        sql`${todos.dueAt} >= ${startOfDay.toISOString()} AND ${todos.dueAt} < ${endOfDay.toISOString()}`
       )
     )
     .orderBy(asc(todos.dueAt))

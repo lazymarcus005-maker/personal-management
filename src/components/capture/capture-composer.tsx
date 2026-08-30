@@ -63,7 +63,8 @@ export function CaptureComposer({
 
   const applySuggestion = (s: CaptureSuggestion) => {
     setSuggestion(s);
-    setType(s.type === "INCOME" ? "EXPENSE" : s.type === "EXPENSE" ? "EXPENSE" : s.type);
+    // Keep the classifier's type — including INCOME — so the sign is right.
+    setType(s.type);
     setTitle(s.title);
     setAmount(s.amount !== null ? String(s.amount) : "");
     setDueDate(s.dueDate ? s.dueDate.slice(0, 10) : "");

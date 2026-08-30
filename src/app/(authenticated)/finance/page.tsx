@@ -78,7 +78,7 @@ export default async function FinancePage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [bills, subscriptions, accountRows, categoryRows, transactionRows, areaRows, projectRows, budgetRows, monthTransactions] =
+  const [bills, subscriptions, accountRows, categoryRows, transactionRows, areaRows, projectRows, budgetRows, monthTransactions, yearTransactions] =
     await Promise.all([
       db
         .select()
@@ -177,6 +177,18 @@ export default async function FinancePage() {
             isNull(financialTransactions.deletedAt),
             gte(financialTransactions.transactionDate, monthStart),
             lt(financialTransactions.transactionDate, monthEnd)
+          )
+        ),
+      // Full year so YEARLY budgets accumulate across months.
+      db
+        .select()
+        .from(financialTransactions)
+        .where(
+          and(
+            eq(financialTransactions.userId, userId),
+            isNull(financialTransactions.deletedAt),
+            gte(financialTransactions.transactionDate, new Date(now.getFullYear(), 0, 1)),
+            lt(financialTransactions.transactionDate, new Date(now.getFullYear() + 1, 0, 1))
           )
         ),
     ]);
@@ -433,7 +445,17 @@ export default async function FinancePage() {
             ) : (
               <div className="space-y-3">
                 {budgetRows.map(({ budget, categoryName, areaName }) => {
-                  const vs = budgetVsActual(budget, monthTransactions, monthStart, monthEnd);
+                  // Compare against the budget's own period: monthly budgets
+                  // use this calendar month, yearly budgets the full year.
+                  const periodStart =
+                    budget.period === "YEARLY"
+                      ? new Date(now.getFullYear(), 0, 1)
+                      : monthStart;
+                  const periodEnd =
+                    budget.period === "YEARLY"
+                      ? new Date(now.getFullYear() + 1, 0, 1)
+                      : monthEnd;
+                  const vs = budgetVsActual(budget, yearTransactions, periodStart, periodEnd);
                   return (
                     <div key={budget.id} className="rounded-[20px] bg-white p-4 space-y-2">
                       <div className="flex items-center justify-between gap-2">

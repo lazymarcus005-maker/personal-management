@@ -70,11 +70,14 @@ export async function GET(request: NextRequest) {
   };
 
   // Small helpers because drizzle needs raw sql for string date params here.
-  function gteSql(colName: string, value: string): SQL {
-    return sql`${sql.raw(`"${colName}"`)} >= ${new Date(value)}`;
+  // Table and column are quoted separately so the identifier is valid SQL.
+  function gteSql(qualifiedName: string, value: string): SQL {
+    const [table, column] = qualifiedName.split(".");
+    return sql`${sql.raw(`"${table}"."${column}"`)} >= ${new Date(value)}`;
   }
-  function lteSql(colName: string, value: string): SQL {
-    return sql`${sql.raw(`"${colName}"`)} <= ${new Date(value)}`;
+  function lteSql(qualifiedName: string, value: string): SQL {
+    const [table, column] = qualifiedName.split(".");
+    return sql`${sql.raw(`"${table}"."${column}"`)} <= ${new Date(value)}`;
   }
 
   const wants = (t: string) => !typeFilter || typeFilter === t;

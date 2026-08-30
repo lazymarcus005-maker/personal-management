@@ -46,7 +46,16 @@ export async function createAccount(data: z.infer<typeof accountSchema>) {
 
   const [account] = await db
     .insert(financialAccounts)
-    .values({ userId, ...parsed })
+    .values({
+      userId,
+      name: parsed.name,
+      type: parsed.type,
+      currency: parsed.currency,
+      openingBalance: parsed.openingBalance,
+      // Start the running balance at the opening balance so net worth and
+      // later transaction adjustments are not offset by the opening amount.
+      currentBalance: parsed.openingBalance,
+    })
     .returning();
 
   revalidatePath("/finance");
@@ -289,21 +298,40 @@ export async function deleteTransaction(id: string) {
   const userId = await requireUserId();
   const db = await getDb();
 
-  const [txn] = await db
-    .update(financialTransactions)
-    .set({ deletedAt: new Date(), updatedAt: new Date() })
-    .where(
-      and(
-        eq(financialTransactions.id, id),
-        eq(financialTransactions.userId, userId),
-        isNull(financialTransactions.deletedAt)
+  const result = await db.transaction(async (tx) => {
+    // Ownership check + soft delete are atomic with the balance reversal so
+    // the account never keeps a stale effect from a deleted transaction.
+    const [txn] = await tx
+      .update(financialTransactions)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(financialTransactions.id, id),
+          eq(financialTransactions.userId, userId),
+          isNull(financialTransactions.deletedAt)
+        )
       )
-    )
-    .returning();
+      .returning();
+
+    if (txn && txn.type !== "TRANSFER") {
+      // Creation signed the amount (+income / −expense); reverse it.
+      const reversal =
+        txn.type === "INCOME" ? `-${txn.amount}` : txn.amount;
+      await tx
+        .update(financialAccounts)
+        .set({
+          currentBalance: sql`${financialAccounts.currentBalance} + ${reversal}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(financialAccounts.id, txn.accountId));
+    }
+
+    return txn;
+  });
 
   revalidatePath("/finance");
   revalidatePath("/");
-  return txn;
+  return result;
 }
 
 // ============================================================

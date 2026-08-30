@@ -10,7 +10,7 @@ export type CaptureSuggestionType =
   | "EXPENSE"
   | "INCOME"
   | "TODO"
-  | "JOURNAL"
+  | "JOURNAL_ENTRY"
   | "IDEA"
   | "NOTE";
 
@@ -123,7 +123,7 @@ export function classifyCapture(raw: string, now: Date = new Date()): CaptureSug
 
   let type: CaptureSuggestionType;
   if (isJournal) {
-    type = "JOURNAL";
+    type = "JOURNAL_ENTRY";
   } else if (amount !== null && INCOME_VERBS.test(text)) {
     type = "INCOME";
   } else if (amount !== null && (SPEND_VERBS.test(text) || CURRENCY_MARKERS.some(({ pattern }) => pattern.test(text)))) {

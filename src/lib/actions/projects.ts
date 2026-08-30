@@ -11,7 +11,7 @@ import {
   financialTransactions,
   entityLinks,
 } from "@/db/schema";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { eq, and, desc, count, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -180,7 +180,9 @@ export async function getProjectStats(projectId: string) {
         and(
           eq(financialTransactions.projectId, projectId),
           eq(financialTransactions.userId, userId),
-          eq(financialTransactions.type, "EXPENSE")
+          eq(financialTransactions.type, "EXPENSE"),
+          // Stay consistent with the soft-deletion rule used everywhere else.
+          isNull(financialTransactions.deletedAt)
         )
       ),
   ]);

@@ -36,7 +36,7 @@ describe("classifyCapture — handoff examples", () => {
       "วันนี้ทำงานได้ดี แต่รู้สึกเหนื่อยช่วงบ่าย",
       NOW
     );
-    expect(result.type).toBe("JOURNAL");
+    expect(result.type).toBe("JOURNAL_ENTRY");
   });
 });
 

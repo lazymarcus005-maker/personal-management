@@ -8,9 +8,11 @@ import {
   notes,
   journalEntries,
   financialTransactions,
+  financialAccounts,
   areas,
+  projects,
 } from "@/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { classifyCapture } from "@/lib/capture/classify";
@@ -71,6 +73,25 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
       .where(and(eq(areas.id, parsed.areaId), eq(areas.userId, userId)));
     if (!area) throw new Error("Area not found");
   }
+  if (parsed.projectId) {
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, parsed.projectId), eq(projects.userId, userId)));
+    if (!project) throw new Error("Project not found");
+  }
+  if (parsed.accountId) {
+    const [account] = await db
+      .select({ id: financialAccounts.id })
+      .from(financialAccounts)
+      .where(
+        and(
+          eq(financialAccounts.id, parsed.accountId),
+          eq(financialAccounts.userId, userId)
+        )
+      );
+    if (!account) throw new Error("Account not found");
+  }
 
   // Parent entity and inbox record are created atomically.
   const result = await db.transaction(async (tx) => {
@@ -96,12 +117,13 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
         throw new Error("Account and amount are required for transactions");
       }
       entityType = "TRANSACTION";
+      const txnType = parsed.type === "INCOME" ? "INCOME" : "EXPENSE";
       const [txn] = await tx
         .insert(financialTransactions)
         .values({
           userId,
           accountId: parsed.accountId,
-          type: parsed.type === "INCOME" ? "INCOME" : "EXPENSE",
+          type: txnType,
           amount: parsed.amount.toFixed(2),
           currency: parsed.currency ?? "THB",
           transactionDate: new Date(),
@@ -110,6 +132,14 @@ export async function saveCapture(data: z.infer<typeof saveCaptureSchema>) {
           projectId: parsed.projectId ?? null,
         })
         .returning();
+      // Keep the account balance in sync, same as createTransaction.
+      await tx
+        .update(financialAccounts)
+        .set({
+          currentBalance: sql`${financialAccounts.currentBalance} + ${txnType === "INCOME" ? parsed.amount.toFixed(2) : `-${parsed.amount.toFixed(2)}`}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(financialAccounts.id, parsed.accountId));
       entityId = txn.id;
     } else if (parsed.type === "JOURNAL_ENTRY") {
       const [entry] = await tx
