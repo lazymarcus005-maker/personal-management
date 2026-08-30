@@ -1,351 +1,122 @@
 import { auth } from "@/auth";
-import { db } from "@/db";
-import { todos, financialItems, creditCards, notes } from "@/db/schema";
-import { eq, and, isNull, lte, desc, asc, sql } from "drizzle-orm";
+import { getInboxCount } from "@/lib/actions/capture";
 import {
-  FileText,
-  ListTodo,
-  Receipt,
-  CreditCard,
-  AlertCircle,
-  type LucideIcon,
-} from "lucide-react";
+  TasksDueTodayWidget,
+  OverdueTasksWidget,
+  UpcomingBillsWidget,
+  ActiveProjectsWidget,
+  GoalProgressWidget,
+  JournalPromptWidget,
+  RecentNotesWidget,
+  RecentExpensesWidget,
+  CaptureInboxWidget,
+  HealthSummaryWidget,
+  UpcomingCalendarWidget,
+} from "@/components/dashboard/widgets";
+import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
 import Link from "next/link";
-import { BillLogo } from "@/components/finance/bill-logo";
+import { Zap } from "lucide-react";
+import { appNow, formatAppDate } from "@/lib/dates";
 
-function MetricCard({
-  title,
-  value,
-  sub,
-  icon: Icon,
-  bgColor,
-}: {
-  title: string;
-  value: string | number;
-  sub?: string;
-  icon: LucideIcon;
-  bgColor: string;
-}) {
-  return (
-    <div
-      className="rounded-[20px] p-4 text-[#13141A]"
-      style={{ backgroundColor: bgColor }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-medium opacity-70">{title}</p>
-        <div className="w-8 h-8 rounded-full bg-white/60 flex items-center justify-center">
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <p className="text-2xl font-bold tracking-tight">{value}</p>
-      {sub && <p className="text-xs opacity-60 mt-0.5">{sub}</p>}
-    </div>
-  );
-}
+export const dynamic = "force-dynamic";
 
-const priorityDot: Record<string, string> = {
-  URGENT: "bg-red-500",
-  HIGH: "bg-orange-500",
-  MEDIUM: "bg-blue-500",
-  LOW: "bg-neutral-300",
-};
-
-export default async function DashboardPage() {
+export default async function TodayDashboardPage() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
   const name = session.user.name || "User";
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dateStr = now.toLocaleDateString("en-US", {
+  const now = appNow();
+  const dateStr = formatAppDate(new Date(), {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-  const [todoToday, overdueTodos, upcomingBills, latestNotes] =
-    await Promise.all([
-      db
-        .select()
-        .from(todos)
-        .where(
-          and(
-            eq(todos.userId, userId),
-            eq(todos.status, "TODO"),
-            lte(todos.dueAt, today)
-          )
-        )
-        .orderBy(desc(todos.priority)),
-      db
-        .select()
-        .from(todos)
-        .where(
-          and(
-            eq(todos.userId, userId),
-            eq(todos.status, "TODO"),
-            sql`${todos.dueAt} IS NOT NULL AND ${todos.dueAt} < ${today}`
-          )
-        )
-        .orderBy(asc(todos.dueAt)),
-      db
-        .select()
-        .from(financialItems)
-        .where(
-          and(
-            eq(financialItems.userId, userId),
-            eq(financialItems.status, "ACTIVE")
-          )
-        )
-        .orderBy(desc(financialItems.createdAt)),
-      db
-        .select()
-        .from(notes)
-        .where(and(eq(notes.userId, userId), isNull(notes.archivedAt)))
-        .orderBy(desc(notes.createdAt))
-        .limit(5),
-    ]);
-
-  const activeSubscriptions = upcomingBills.filter(
-    (b) => b.type === "SUBSCRIPTION"
-  );
-  const totalMonthlySubscriptions = activeSubscriptions.reduce(
-    (sum, b) => sum + parseFloat(b.amount),
-    0
-  );
-
-  const activeCreditCards = await db
-    .select()
-    .from(creditCards)
-    .where(
-      and(eq(creditCards.userId, userId), eq(creditCards.status, "ACTIVE"))
-    );
+  const inboxCount = await getInboxCount();
 
   return (
     <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-2">
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7A847E]">
+              Today
+            </p>
             <h1 className="text-2xl font-bold text-[#13141A]">
-              Welcome, {name.split(" ")[0]}!
+              Good {now.getHours() < 12 ? "morning" : now.getHours() < 18 ? "afternoon" : "evening"},{" "}
+              {name.split(" ")[0]}
             </h1>
             <p className="text-sm text-[#6B7280] mt-0.5">{dateStr}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-[#E5DBFE] flex items-center justify-center text-sm font-semibold text-[#13141A] shrink-0">
-            {name.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/capture"
+              className="flex items-center gap-1.5 rounded-full bg-[#18201C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2A332D] transition-colors"
+            >
+              <Zap className="h-4 w-4" />
+              Capture
+              {inboxCount > 0 && (
+                <span className="rounded-full bg-[#D0E77F] px-1.5 text-[10px] font-bold text-[#13141A]">
+                  {inboxCount}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
 
-        {/* Hero Card */}
-        <div
-          className="rounded-[28px] p-6 mb-6 text-[#13141A] relative overflow-hidden"
-          style={{ backgroundColor: "#D0E77F" }}
-        >
-          <div className="relative z-10">
-            <p className="text-sm font-medium opacity-70 mb-1">
-              Tasks Due Today
-            </p>
-            <p className="text-xs opacity-60 mb-1">{dateStr}</p>
-            <p className="text-[32px] font-bold tracking-tight mt-2">
-              {todoToday.length}{" "}
-              <span className="text-lg font-normal opacity-70">tasks</span>
-            </p>
-            <p className="text-sm mt-1 opacity-70">
-              {overdueTodos.length} overdue ·{" "}
-              {totalMonthlySubscriptions.toLocaleString()} THB/mo subscriptions
-            </p>
-          </div>
-          {/* Decorative circles */}
-          <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full border-2 border-[#13141A]/10" />
-          <div className="absolute -right-4 -top-4 w-36 h-36 rounded-full border-2 border-[#13141A]/8" />
-          <div className="absolute right-4 -bottom-4 w-24 h-24 rounded-full border-2 border-[#13141A]/6" />
-        </div>
-
-        {/* Metric Cards Grid */}
-        <div className="mobile-carousel grid grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-          <MetricCard
-            title="Tasks Today"
-            value={todoToday.length}
-            sub={`${overdueTodos.length} overdue`}
-            icon={ListTodo}
-            bgColor="#FBD4E6"
-          />
-          <MetricCard
-            title="Subscriptions"
-            value={totalMonthlySubscriptions.toLocaleString()}
-            sub={`${activeSubscriptions.length} active · THB/mo`}
-            icon={Receipt}
-            bgColor="#E5DBFE"
-          />
-          <MetricCard
-            title="Active Cards"
-            value={activeCreditCards.length}
-            sub="credit cards"
-            icon={CreditCard}
-            bgColor="#ACCDFF"
-          />
-          <MetricCard
-            title="Recent Notes"
-            value={latestNotes.length}
-            sub="latest notes"
-            icon={FileText}
-            bgColor="#D0E77F"
-          />
-        </div>
-
-        {/* Content Sections */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Tasks Today */}
-          <section>
-            <h2 className="text-lg font-bold text-[#13141A] mb-3">
-              Tasks Today
-            </h2>
-            {todoToday.length === 0 ? (
-              <div className="rounded-[20px] bg-white p-6 text-center">
-                <p className="text-sm text-[#6B7280]">No tasks due today</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[320px] overflow-y-auto">
-                {todoToday.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="rounded-[20px] bg-white p-4 flex items-center gap-4"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0">
-                      <div
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          priorityDot[todo.priority] ?? priorityDot.LOW
-                        }`}
-                      />
-                    </div>
-                    <p className="flex-1 min-w-0 font-semibold text-[#13141A] text-sm truncate">
-                      {todo.title}
-                    </p>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EEF0F5] text-[#6B7280] shrink-0">
-                      {todo.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Overdue Tasks */}
-          <section>
-            <h2 className="text-lg font-bold text-[#13141A] mb-3">
-              Overdue Tasks
-            </h2>
-            {overdueTodos.length === 0 ? (
-              <div className="rounded-[20px] bg-white p-6 text-center">
-                <p className="text-sm text-[#6B7280]">No overdue tasks</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[320px] overflow-y-auto">
-                {overdueTodos.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="rounded-[20px] bg-white p-4 flex items-center gap-4"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#FFD4D4] flex items-center justify-center shrink-0">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-[#13141A] text-sm truncate">
-                        {todo.title}
-                      </p>
-                      {todo.dueAt && (
-                        <p className="text-xs text-red-500 mt-0.5">
-                          Due {todo.dueAt.toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Active Bills & Subscriptions */}
-          <section>
-            <h2 className="text-lg font-bold text-[#13141A] mb-3">
-              Active Bills &amp; Subscriptions
-            </h2>
-            {upcomingBills.length === 0 ? (
-              <div className="rounded-[20px] bg-white p-6 text-center">
-                <p className="text-sm text-[#6B7280]">No active items</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[320px] overflow-y-auto">
-                {upcomingBills.map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="rounded-[20px] bg-white p-4 flex items-center gap-4"
-                  >
-                    <BillLogo logoUrl={bill.logoUrl} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-[#13141A] text-sm truncate">
-                        {bill.name}
-                      </p>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
-                        {bill.billingCycle} ·{" "}
-                        {bill.type === "SUBSCRIPTION" ? "Subscription" : "Bill"}
-                      </p>
-                    </div>
-                    <p className="font-bold text-[#13141A] text-sm shrink-0">
-                      {parseFloat(bill.amount).toLocaleString()}{" "}
-                      <span className="text-xs font-normal text-[#6B7280]">
-                        {bill.currency}
-                      </span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Recent Notes */}
-          <section>
-            <h2 className="text-lg font-bold text-[#13141A] mb-3">
-              Recent Notes
-            </h2>
-            {latestNotes.length === 0 ? (
-              <div className="rounded-[20px] bg-white p-6 text-center">
-                <p className="text-sm text-[#6B7280]">No notes yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[320px] overflow-y-auto">
-                {latestNotes.map((note) => (
-                  <Link
-                    key={note.id}
-                    href="/notes"
-                    className="rounded-[20px] bg-white p-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#EEF0F5] flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4 text-[#13141A]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-[#13141A] text-sm truncate">
-                          {note.title}
-                        </p>
-                        {note.isPinned && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E5DBFE] text-[#13141A] shrink-0">
-                            Pinned
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
-                        {note.noteType} · {note.createdAt.toLocaleDateString()}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+        {/* Configurable widget grid */}
+        <DashboardGrid
+          widgets={[
+            {
+              id: "tasks-due-today",
+              node: <TasksDueTodayWidget userId={userId} />,
+            },
+            {
+              id: "overdue-tasks",
+              node: <OverdueTasksWidget userId={userId} />,
+            },
+            {
+              id: "capture-inbox",
+              node: <CaptureInboxWidget userId={userId} />,
+            },
+            {
+              id: "upcoming-bills",
+              node: <UpcomingBillsWidget userId={userId} />,
+            },
+            {
+              id: "active-projects",
+              node: <ActiveProjectsWidget userId={userId} />,
+            },
+            {
+              id: "goal-progress",
+              node: <GoalProgressWidget userId={userId} />,
+            },
+            {
+              id: "daily-reflection",
+              node: <JournalPromptWidget userId={userId} />,
+            },
+            {
+              id: "upcoming-reminders",
+              node: <UpcomingCalendarWidget userId={userId} />,
+            },
+            {
+              id: "recent-notes",
+              node: <RecentNotesWidget userId={userId} />,
+            },
+            {
+              id: "recent-expenses",
+              node: <RecentExpensesWidget userId={userId} />,
+            },
+            {
+              id: "health-summary",
+              node: <HealthSummaryWidget userId={userId} />,
+            },
+          ]}
+          defaultVisibleCount={6}
+        />
       </div>
     </div>
   );
