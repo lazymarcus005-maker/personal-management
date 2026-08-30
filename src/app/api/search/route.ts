@@ -8,6 +8,7 @@ import {
   goals,
   journalEntries,
   financialTransactions,
+  financialAccounts,
   areas,
   tags,
 } from "@/db/schema";
@@ -36,7 +37,9 @@ export interface UnifiedSearchResult {
 
 /**
  * Unified search across every user-owned entity type. All queries are scoped
- * by the authenticated user id; filters respect ownership by construction.
+ * by the authenticated user id; area/project/type/date filters are pushed
+ * into the database queries before any limit so filters can't hide matching
+ * rows behind an arbitrary result window.
  */
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -62,10 +65,17 @@ export async function GET(request: NextRequest) {
   const limit = 5;
 
   const userScope = (table: { userId: unknown }) => eq(table.userId as never, userId);
-  const dateRange = (colName: string): SQL[] => {
+
+  // Optional context predicates, pushed into each query before its limit.
+  const areaPredicate = (areaName: typeof areas.name): SQL | undefined =>
+    areaFilter ? eq(areaName, areaFilter) : undefined;
+  const projectPredicate = (projectName: typeof projects.name): SQL | undefined =>
+    projectFilter ? eq(projectName, projectFilter) : undefined;
+
+  const createdRange = (qualifiedName: string): SQL[] => {
     const conditions: SQL[] = [];
-    if (from) conditions.push(gteSql(colName, from));
-    if (to) conditions.push(lteSql(colName, to));
+    if (from) conditions.push(gteSql(qualifiedName, from));
+    if (to) conditions.push(ltSqlNextDay(qualifiedName, to));
     return conditions;
   };
 
@@ -75,9 +85,13 @@ export async function GET(request: NextRequest) {
     const [table, column] = qualifiedName.split(".");
     return sql`${sql.raw(`"${table}"."${column}"`)} >= ${new Date(value)}`;
   }
-  function lteSql(qualifiedName: string, value: string): SQL {
+  // The `to` date picker sends midnight of the selected day; use an
+  // exclusive bound at the start of the next day so the whole day matches.
+  function ltSqlNextDay(qualifiedName: string, value: string): SQL {
     const [table, column] = qualifiedName.split(".");
-    return sql`${sql.raw(`"${table}"."${column}"`)} <= ${new Date(value)}`;
+    const nextDay = new Date(value);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    return sql`${sql.raw(`"${table}"."${column}"`)} < ${nextDay}`;
   }
 
   const wants = (t: string) => !typeFilter || typeFilter === t;
@@ -90,6 +104,7 @@ export async function GET(request: NextRequest) {
     journalResults,
     billResults,
     transactionResults,
+    accountResults,
     areaResults,
     tagResults,
   ] = await Promise.all([
@@ -102,14 +117,18 @@ export async function GET(request: NextRequest) {
             createdAt: todos.createdAt,
             updatedAt: todos.updatedAt,
             areaName: areas.name,
+            projectName: projects.name,
           })
           .from(todos)
           .leftJoin(areas, eq(todos.areaId, areas.id))
+          .leftJoin(projects, eq(todos.projectId, projects.id))
           .where(
             and(
               userScope(todos),
               or(ilike(todos.title, searchTerm), ilike(todos.description, searchTerm)),
-              ...dateRange("todos.created_at")
+              ...createdRange("todos.created_at"),
+              areaPredicate(areas.name),
+              projectPredicate(projects.name)
             )
           )
           .limit(limit)
@@ -123,15 +142,19 @@ export async function GET(request: NextRequest) {
             createdAt: notes.createdAt,
             updatedAt: notes.updatedAt,
             areaName: areas.name,
+            projectName: projects.name,
           })
           .from(notes)
           .leftJoin(areas, eq(notes.areaId, areas.id))
+          .leftJoin(projects, eq(notes.projectId, projects.id))
           .where(
             and(
               userScope(notes),
               isNull(notes.archivedAt),
               or(ilike(notes.title, searchTerm), ilike(notes.content, searchTerm)),
-              ...dateRange("notes.created_at")
+              ...createdRange("notes.created_at"),
+              areaPredicate(areas.name),
+              projectPredicate(projects.name)
             )
           )
           .limit(limit)
@@ -152,7 +175,8 @@ export async function GET(request: NextRequest) {
             and(
               userScope(projects),
               or(ilike(projects.name, searchTerm), ilike(projects.description, searchTerm)),
-              ...dateRange("projects.created_at")
+              ...createdRange("projects.created_at"),
+              areaPredicate(areas.name)
             )
           )
           .limit(limit)
@@ -175,7 +199,9 @@ export async function GET(request: NextRequest) {
             and(
               userScope(goals),
               or(ilike(goals.title, searchTerm), ilike(goals.description, searchTerm)),
-              ...dateRange("goals.created_at")
+              ...createdRange("goals.created_at"),
+              areaPredicate(areas.name),
+              projectPredicate(projects.name)
             )
           )
           .limit(limit)
@@ -197,7 +223,7 @@ export async function GET(request: NextRequest) {
                 ilike(journalEntries.title, searchTerm),
                 ilike(journalEntries.content, searchTerm)
               ),
-              ...dateRange("journal_entries.created_at")
+              ...createdRange("journal_entries.created_at")
             )
           )
           .limit(limit)
@@ -216,11 +242,19 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               userScope(financialItems),
+              // Respect the requested subtype so a Bill search doesn't return
+              // subscriptions and vice versa.
+              typeFilter === "BILL" || typeFilter === "SUBSCRIPTION"
+                ? eq(
+                    financialItems.type,
+                    typeFilter === "BILL" ? "RECURRING_BILL" : "SUBSCRIPTION"
+                  )
+                : undefined,
               or(
                 ilike(financialItems.name, searchTerm),
                 ilike(financialItems.description, searchTerm)
               ),
-              ...dateRange("financial_items.created_at")
+              ...createdRange("financial_items.created_at")
             )
           )
           .limit(limit)
@@ -233,8 +267,12 @@ export async function GET(request: NextRequest) {
             merchant: financialTransactions.merchant,
             createdAt: financialTransactions.createdAt,
             updatedAt: financialTransactions.updatedAt,
+            areaName: areas.name,
+            projectName: projects.name,
           })
           .from(financialTransactions)
+          .leftJoin(areas, eq(financialTransactions.areaId, areas.id))
+          .leftJoin(projects, eq(financialTransactions.projectId, projects.id))
           .where(
             and(
               userScope(financialTransactions),
@@ -243,7 +281,31 @@ export async function GET(request: NextRequest) {
                 ilike(financialTransactions.description, searchTerm),
                 ilike(financialTransactions.merchant, searchTerm)
               ),
-              ...dateRange("financial_transactions.created_at")
+              ...createdRange("financial_transactions.created_at"),
+              areaPredicate(areas.name),
+              projectPredicate(projects.name)
+            )
+          )
+          .limit(limit)
+      : Promise.resolve([]),
+    wants("ACCOUNT")
+      ? db
+          .select({
+            id: financialAccounts.id,
+            title: financialAccounts.name,
+            type: financialAccounts.type,
+            createdAt: financialAccounts.createdAt,
+            updatedAt: financialAccounts.updatedAt,
+          })
+          .from(financialAccounts)
+          .where(
+            and(
+              userScope(financialAccounts),
+              or(
+                ilike(financialAccounts.name, searchTerm),
+                ilike(financialAccounts.type, searchTerm)
+              ),
+              ...createdRange("financial_accounts.created_at")
             )
           )
           .limit(limit)
@@ -262,7 +324,7 @@ export async function GET(request: NextRequest) {
             and(
               userScope(areas),
               ilike(areas.name, searchTerm),
-              ...dateRange("areas.created_at")
+              ...createdRange("areas.created_at")
             )
           )
           .limit(limit)
@@ -292,7 +354,7 @@ export async function GET(request: NextRequest) {
       title: r.title,
       snippet: r.snippet,
       area: r.areaName,
-      project: null,
+      project: r.projectName,
       created_at: r.createdAt.toISOString(),
       updated_at: r.updatedAt.toISOString(),
     })),
@@ -302,7 +364,7 @@ export async function GET(request: NextRequest) {
       title: r.title,
       snippet: r.snippet,
       area: r.areaName,
-      project: null,
+      project: r.projectName,
       created_at: r.createdAt.toISOString(),
       updated_at: r.updatedAt.toISOString(),
     })),
@@ -351,6 +413,16 @@ export async function GET(request: NextRequest) {
       entity_type: "TRANSACTION",
       title: r.merchant ?? "Transaction",
       snippet: r.snippet,
+      area: r.areaName,
+      project: r.projectName,
+      created_at: r.createdAt.toISOString(),
+      updated_at: r.updatedAt.toISOString(),
+    })),
+    ...accountResults.map((r) => ({
+      id: r.id,
+      entity_type: "ACCOUNT",
+      title: r.title,
+      snippet: r.type.replace(/_/g, " "),
       area: null,
       project: null,
       created_at: r.createdAt.toISOString(),
@@ -378,13 +450,5 @@ export async function GET(request: NextRequest) {
     })),
   ].filter((r) => isEntityType(r.entity_type) || r.entity_type === "TAG");
 
-  // Optional ownership-scoped filters (area/project) applied post-hoc on the
-  // joined names so the API stays a single round trip.
-  const filtered = results.filter((r) => {
-    if (areaFilter && r.area !== areaFilter) return false;
-    if (projectFilter && r.project !== projectFilter) return false;
-    return true;
-  });
-
-  return Response.json({ results: filtered });
+  return Response.json({ results });
 }

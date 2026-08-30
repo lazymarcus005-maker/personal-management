@@ -25,10 +25,12 @@ import { Plus } from "lucide-react";
 const MOODS = ["GREAT", "GOOD", "OKAY", "LOW", "STRESSED"];
 
 function todayLocalISO() {
+  // Format the local date directly — an ISO round-trip would shift the
+  // calendar day for users east of UTC (e.g. Thailand).
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    .toISOString()
-    .slice(0, 10);
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 export function JournalForm() {

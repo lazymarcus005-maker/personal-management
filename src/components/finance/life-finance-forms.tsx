@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Wallet, Tag, ArrowLeftRight, PiggyBank } from "lucide-react";
+import { Plus, Trash2, Wallet, Tag, PiggyBank } from "lucide-react";
 
 type AreaOption = { id: string; name: string };
 type ProjectOption = { id: string; name: string };
@@ -33,10 +33,12 @@ type AccountOption = { id: string; name: string };
 type CategoryOption = { id: string; name: string };
 
 function todayLocalISO() {
+  // Format the local date directly — an ISO round-trip would shift the
+  // calendar day for users east of UTC (e.g. Thailand).
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    .toISOString()
-    .slice(0, 10);
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 const ACCOUNT_TYPES = [
@@ -288,7 +290,9 @@ export function TransactionForm({
                   <SelectContent>
                     <SelectItem value="INCOME">Income</SelectItem>
                     <SelectItem value="EXPENSE">Expense</SelectItem>
-                    <SelectItem value="TRANSFER">Transfer</SelectItem>
+                    {/* TRANSFER is intentionally not offered yet: the schema
+                        has a single account per transaction, so a transfer
+                        cannot debit one account and credit another. */}
                   </SelectContent>
                 </Select>
               </div>
@@ -546,14 +550,5 @@ export function DeleteTransactionButton({ id }: { id: string }) {
     >
       <Trash2 className="h-3.5 w-3.5 text-[#7A847E]" />
     </Button>
-  );
-}
-
-export function TransferHint() {
-  return (
-    <p className="flex items-center gap-1 text-xs text-[#7A847E]">
-      <ArrowLeftRight className="h-3 w-3" />
-      Transfers between accounts are recorded without affecting income/expense totals.
-    </p>
   );
 }
