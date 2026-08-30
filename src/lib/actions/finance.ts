@@ -49,6 +49,21 @@ export async function createFinancialItem(
   const db = await getDb();
 
   const parsed = financialItemSchema.parse(data);
+
+  // A crafted paymentMethodId must not attach another user's method.
+  if (parsed.paymentMethodId) {
+    const [method] = await db
+      .select({ id: paymentMethods.id })
+      .from(paymentMethods)
+      .where(
+        and(
+          eq(paymentMethods.id, parsed.paymentMethodId),
+          eq(paymentMethods.userId, session.user.id)
+        )
+      );
+    if (!method) throw new Error("Payment method not found");
+  }
+
   const [item] = await db
     .insert(financialItems)
     .values({
@@ -86,6 +101,19 @@ export async function updateFinancialItem(
   if (typeof updateData.startDate === "string") updateData.startDate = new Date(updateData.startDate);
   if (typeof updateData.endDate === "string") {
     updateData.endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+  }
+
+  if (updateData.paymentMethodId) {
+    const [method] = await db
+      .select({ id: paymentMethods.id })
+      .from(paymentMethods)
+      .where(
+        and(
+          eq(paymentMethods.id, updateData.paymentMethodId as string),
+          eq(paymentMethods.userId, session.user.id)
+        )
+      );
+    if (!method) throw new Error("Payment method not found");
   }
 
   const [item] = await db

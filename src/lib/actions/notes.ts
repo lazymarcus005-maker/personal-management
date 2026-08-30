@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { getDb } from "@/db";
-import { notes } from "@/db/schema";
+import { notes, areas, projects } from "@/db/schema";
 import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -11,7 +11,32 @@ const noteSchema = z.object({
   title: z.string().min(1).max(300),
   content: z.string().optional(),
   noteType: z.enum(["GENERAL", "FINANCE", "IDEA", "REFERENCE", "MEETING"]),
+  areaId: z.string().uuid().optional().nullable(),
+  projectId: z.string().uuid().optional().nullable(),
 });
+
+/** Related ids must be owned by the user before they can be referenced. */
+async function assertContextOwned(
+  db: Awaited<ReturnType<typeof getDb>>,
+  userId: string,
+  areaId?: string | null,
+  projectId?: string | null
+) {
+  if (areaId) {
+    const [area] = await db
+      .select({ id: areas.id })
+      .from(areas)
+      .where(and(eq(areas.id, areaId), eq(areas.userId, userId)));
+    if (!area) throw new Error("Area not found");
+  }
+  if (projectId) {
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
+    if (!project) throw new Error("Project not found");
+  }
+}
 
 export async function getNotes(includeArchived = false) {
   const session = await auth();
@@ -46,6 +71,7 @@ export async function createNote(data: z.infer<typeof noteSchema>) {
   const db = await getDb();
 
   const parsed = noteSchema.parse(data);
+  await assertContextOwned(db, session.user.id, parsed.areaId, parsed.projectId);
   const [note] = await db
     .insert(notes)
     .values({
@@ -53,6 +79,8 @@ export async function createNote(data: z.infer<typeof noteSchema>) {
       title: parsed.title,
       content: parsed.content,
       noteType: parsed.noteType,
+      areaId: parsed.areaId ?? null,
+      projectId: parsed.projectId ?? null,
     })
     .returning();
 
@@ -68,6 +96,12 @@ export async function updateNote(
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
+  await assertContextOwned(
+    db,
+    session.user.id,
+    data.areaId as string | null | undefined,
+    data.projectId as string | null | undefined
+  );
 
   const [note] = await db
     .update(notes)
