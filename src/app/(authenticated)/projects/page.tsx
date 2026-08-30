@@ -8,6 +8,7 @@ import { AreaForm, ArchiveAreaButton } from "@/components/projects/area-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { formatAppDate } from "@/lib/dates";
 import { FolderKanban, Target, LayoutGrid } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ export default async function ProjectsPage() {
                       {project.targetDate && (
                         <span>
                           · target{" "}
-                          {new Date(project.targetDate).toLocaleDateString()}
+                          {formatAppDate(project.targetDate)}
                         </span>
                       )}
                     </div>

@@ -10,6 +10,7 @@ import {
   areas,
 } from "@/db/schema";
 import { and, eq, gte, lt, isNull, desc } from "drizzle-orm";
+import { appDayStart, appDayEnd, appMonthStart, formatAppDate } from "@/lib/dates";
 import Link from "next/link";
 import {
   spendingByCategory,
@@ -34,18 +35,14 @@ export default async function ReviewPage({
   const userId = session.user.id;
   const db = await getDb();
 
+  // Wall-clock boundaries in the app timezone so the review window matches
+  // the days the user actually lived, not the server's calendar.
   const now = new Date();
-  const periodStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
-  if (period === "week") {
-    periodStart.setDate(periodStart.getDate() - 6); // last 7 days including today
-  } else {
-    periodStart.setDate(1); // calendar month to date
-  }
-  const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const periodStart =
+    period === "week"
+      ? appDayStart(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)) // last 7 days incl. today
+      : appMonthStart(); // calendar month to date
+  const periodEnd = appDayEnd();
 
   const [
     completedTodos,
@@ -293,7 +290,7 @@ export default async function ReviewPage({
                     {entry.title ?? entry.content ?? "Entry"}
                   </span>
                   <span className="text-[10px] text-[#7A847E] shrink-0">
-                    {entry.entryDate.toLocaleDateString()} · {entry.mood ?? "—"}
+                    {formatAppDate(entry.entryDate)} · {entry.mood ?? "—"}
                   </span>
                 </li>
               ))}

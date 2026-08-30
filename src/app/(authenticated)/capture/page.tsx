@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { areas, projects, financialAccounts, captureItems } from "@/db/schema";
 import { eq, and, desc, isNull } from "drizzle-orm";
+import { formatAppDate } from "@/lib/dates";
 import {
   CaptureComposer,
   DismissInboxItemButton,
@@ -111,7 +112,7 @@ export default async function CapturePage() {
                     {item.rawText}
                   </span>
                   <span className="text-xs text-[#7A847E] shrink-0">
-                    {item.createdAt.toLocaleDateString()}
+                    {formatAppDate(item.createdAt)}
                   </span>
                   <DismissInboxItemButton id={item.id} />
                 </li>

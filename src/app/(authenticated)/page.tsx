@@ -16,6 +16,7 @@ import {
 import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
 import Link from "next/link";
 import { Zap } from "lucide-react";
+import { appNow, formatAppDate } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,8 @@ export default async function TodayDashboardPage() {
 
   const userId = session.user.id;
   const name = session.user.name || "User";
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
+  const now = appNow();
+  const dateStr = formatAppDate(new Date(), {
     weekday: "long",
     day: "numeric",
     month: "long",

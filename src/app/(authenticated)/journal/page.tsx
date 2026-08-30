@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { journalEntries } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { formatAppDate } from "@/lib/dates";
 import { JournalForm } from "@/components/journal/journal-form";
 import { Badge } from "@/components/ui/badge";
 import { NotebookPen } from "lucide-react";
@@ -59,7 +60,7 @@ export default async function JournalPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-[#13141A]">
-                    {entry.entryDate.toLocaleDateString("en-US", {
+                    {formatAppDate(entry.entryDate, {
                       weekday: "long",
                       day: "numeric",
                       month: "long",

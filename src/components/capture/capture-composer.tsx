@@ -39,6 +39,8 @@ const CAPTURE_TYPES = [
   { value: "NOTE", label: "Note" },
 ];
 
+const CURRENCIES = ["THB", "USD", "EUR", "JPY", "GBP"];
+
 export function CaptureComposer({
   areas,
   projects,
@@ -53,6 +55,7 @@ export function CaptureComposer({
   const [type, setType] = useState<string>("NOTE");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("THB");
   const [dueDate, setDueDate] = useState("");
   const [accountId, setAccountId] = useState("");
   const [areaId, setAreaId] = useState("");
@@ -67,6 +70,7 @@ export function CaptureComposer({
     setType(s.type);
     setTitle(s.title);
     setAmount(s.amount !== null ? String(s.amount) : "");
+    setCurrency(s.currency);
     setDueDate(s.dueDate ? s.dueDate.slice(0, 10) : "");
     setAreaId("");
     setProjectId("");
@@ -102,7 +106,7 @@ export function CaptureComposer({
           type,
           title,
           amount: amount ? Number(amount) : null,
-          currency: suggestion?.currency ?? "THB",
+          currency,
           // "2026-08-31" alone parses as UTC midnight, which is August 30 for
           // users west of UTC — anchor the instant at the client's local
           // midnight so the stored due date is the day the user picked.
@@ -123,6 +127,7 @@ export function CaptureComposer({
         setSuggestion(null);
         setTitle("");
         setAmount("");
+        setCurrency("THB");
         setDueDate("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save");
@@ -223,6 +228,21 @@ export function CaptureComposer({
                     onChange={(e) => setAmount(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Currency</Label>
+                  <Select value={currency} onValueChange={setCurrency}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Account</Label>

@@ -8,6 +8,7 @@ import {
   spendingByArea,
   budgetVsActual,
   netWorth,
+  nextDueDate,
 } from "@/lib/services/finance-summary";
 
 describe("recurring normalization", () => {
@@ -113,5 +114,61 @@ describe("net worth", () => {
 
   it("returns zero with no accounts", () => {
     expect(netWorth([])).toBe(0);
+  });
+});
+
+describe("nextDueDate", () => {
+  const today = new Date(2026, 7, 30); // 2026-08-30
+
+  it("rolls a passed monthly billing day to next month", () => {
+    const next = nextDueDate(
+      { billingCycle: "MONTHLY", billingDay: 1, startDate: new Date(2026, 0, 1) },
+      today
+    );
+    expect(next).toEqual(new Date(2026, 8, 1)); // Sep 1
+  });
+
+  it("keeps a billing day later this month", () => {
+    const next = nextDueDate(
+      { billingCycle: "MONTHLY", billingDay: 31, startDate: new Date(2026, 0, 31) },
+      today
+    );
+    expect(next).toEqual(new Date(2026, 7, 31)); // Aug 31
+  });
+
+  it("clamps to the last day of short months", () => {
+    const next = nextDueDate(
+      { billingCycle: "MONTHLY", billingDay: 31, startDate: new Date(2026, 0, 31) },
+      new Date(2026, 1, 15) // Feb 15
+    );
+    expect(next).toEqual(new Date(2026, 1, 28)); // Feb 28 (Feb has no 31st)
+  });
+
+  it("steps quarterly from the start date", () => {
+    const next = nextDueDate(
+      { billingCycle: "QUARTERLY", billingDay: 10, startDate: new Date(2026, 0, 10) },
+      today
+    );
+    expect(next).toEqual(new Date(2026, 9, 10)); // Oct 10
+  });
+
+  it("steps weekly from the start date when no billing day exists", () => {
+    const next = nextDueDate(
+      { billingCycle: "WEEKLY", startDate: new Date(2026, 7, 3) }, // Mon Aug 3
+      today
+    );
+    expect(next).toEqual(new Date(2026, 7, 31)); // Mon Aug 31
+  });
+
+  it("falls back to the billing day-of-month without a start date", () => {
+    const next = nextDueDate(
+      { billingCycle: "MONTHLY", billingDay: 5, startDate: null },
+      today
+    );
+    expect(next).toEqual(new Date(2026, 8, 5)); // Sep 5
+  });
+
+  it("returns null when nothing can be derived", () => {
+    expect(nextDueDate({ billingCycle: "CUSTOM", startDate: null }, today)).toBeNull();
   });
 });

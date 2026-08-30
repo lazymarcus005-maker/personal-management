@@ -15,6 +15,7 @@ import { EntityLinkPicker } from "@/components/projects/link-entity-form";
 import type { LinkableEntity, ExistingLink } from "@/components/projects/link-entity-form";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { formatAppDate } from "@/lib/dates";
 import {
   ListTodo,
   FileText,
@@ -208,10 +209,10 @@ export default async function ProjectDetailPage({
           )}
           <p className="text-xs text-[#7A847E] mt-2">
             {row.project.startDate
-              ? `Started ${new Date(row.project.startDate).toLocaleDateString()}`
+              ? `Started ${formatAppDate(row.project.startDate)}`
               : "No start date"}
             {row.project.targetDate
-              ? ` · target ${new Date(row.project.targetDate).toLocaleDateString()}`
+              ? ` · target ${formatAppDate(row.project.targetDate)}`
               : ""}
           </p>
         </div>
@@ -266,7 +267,7 @@ export default async function ProjectDetailPage({
                 <div key={note.id} className="rounded-xl bg-white p-3 text-sm">
                   <p className="font-medium text-[#13141A] truncate">{note.title}</p>
                   <p className="text-xs text-[#6B7280]">
-                    {note.noteType} · {note.createdAt.toLocaleDateString()}
+                    {note.noteType} · {formatAppDate(note.createdAt)}
                   </p>
                 </div>
               ))
@@ -307,7 +308,7 @@ export default async function ProjectDetailPage({
                       {expense.description ?? expense.merchant ?? "Expense"}
                     </p>
                     <p className="text-xs text-[#6B7280]">
-                      {expense.transactionDate.toLocaleDateString()}
+                      {formatAppDate(expense.transactionDate)}
                     </p>
                   </div>
                   <p className="font-bold text-[#13141A] shrink-0">

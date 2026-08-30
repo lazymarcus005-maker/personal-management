@@ -10,6 +10,78 @@ export interface RecurringItemLike {
   status?: string | null;
 }
 
+export interface RecurringScheduleLike {
+  billingCycle: string;
+  billingDay?: number | null;
+  startDate?: Date | string | null;
+}
+
+function addMonthsClamped(anchor: Date, months: number): Date {
+  // Keeps the anchor's day-of-month fixed and clamps to the target month's
+  // length (Jan 31 + 1 month = Feb 28, and Mar 31 the month after — no drift).
+  const target = new Date(anchor.getFullYear(), anchor.getMonth() + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  return new Date(target.getFullYear(), target.getMonth(), Math.min(anchor.getDate(), lastDay));
+}
+
+/**
+ * Next occurrence of a recurring item on or after `today` (local calendar).
+ *
+ * Anchors on the item's startDate when the cycle maps to a month step
+ * (MONTHLY/QUARTERLY/YEARLY); falls back to the billing day-of-month, then to
+ * stepping weekly from the start date. Returns null when nothing can be
+ * derived.
+ */
+export function nextDueDate(
+  item: RecurringScheduleLike,
+  today: Date = new Date()
+): Date | null {
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const monthSteps = { MONTHLY: 1, QUARTERLY: 3, YEARLY: 12 } as Record<string, number>;
+  const start = item.startDate ? new Date(item.startDate) : null;
+  const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
+
+  if (validStart && monthSteps[item.billingCycle]) {
+    // Step from the start date in whole cycle units so the anchor day never
+    // drifts through short months.
+    const steps = monthSteps[item.billingCycle];
+    let cursor = new Date(
+      validStart.getFullYear(),
+      validStart.getMonth(),
+      validStart.getDate()
+    );
+    for (let i = 0; i < 1300 && cursor < dayStart; i++) {
+      cursor = addMonthsClamped(validStart, (i + 1) * steps);
+    }
+    if (cursor >= dayStart) return cursor;
+  }
+
+  if (item.billingDay && item.billingDay >= 1 && item.billingDay <= 31) {
+    for (let add = 0; add < 2; add++) {
+      const month = new Date(today.getFullYear(), today.getMonth() + add, 1);
+      const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      if (item.billingDay <= lastDay) {
+        const candidate = new Date(month.getFullYear(), month.getMonth(), item.billingDay);
+        if (candidate >= dayStart) return candidate;
+      }
+    }
+  }
+
+  if (validStart && item.billingCycle === "WEEKLY") {
+    let cursor = new Date(
+      validStart.getFullYear(),
+      validStart.getMonth(),
+      validStart.getDate()
+    );
+    for (let i = 0; i < 520 && cursor < dayStart; i++) {
+      cursor = new Date(cursor.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+    if (cursor >= dayStart) return cursor;
+  }
+
+  return null;
+}
+
 export interface TransactionLike {
   type: string; // INCOME | EXPENSE | TRANSFER
   amount: string | number;

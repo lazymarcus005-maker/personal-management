@@ -13,7 +13,14 @@ import {
   stravaActivities,
   appleHealthWorkouts,
 } from "@/db/schema";
-import { and, eq, isNull, lte, gte, desc, asc, sql, count } from "drizzle-orm";
+import { and, eq, isNull, gte, desc, asc, sql, count } from "drizzle-orm";
+import {
+  appDayStart,
+  appDayEnd,
+  appNow,
+  formatAppDate,
+} from "@/lib/dates";
+import { nextDueDate } from "@/lib/services/finance-summary";
 import Link from "next/link";
 import { BillLogo } from "@/components/finance/bill-logo";
 import { GoalProgressBar } from "@/components/projects/goal-form";
@@ -84,9 +91,8 @@ const priorityDot: Record<string, string> = {
 
 export async function TasksDueTodayWidget({ userId }: { userId: string }) {
   const db = await getDb();
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const startOfDay = appDayStart();
+  const endOfDay = appDayEnd();
 
   const rows = await db
     .select()
@@ -122,7 +128,7 @@ export async function TasksDueTodayWidget({ userId }: { userId: string }) {
             </span>
             {todo.dueAt && (
               <span className="text-[10px] text-[#7A847E] shrink-0">
-                {todo.dueAt.toLocaleDateString()}
+                {formatAppDate(todo.dueAt)}
               </span>
             )}
           </li>
@@ -134,8 +140,7 @@ export async function TasksDueTodayWidget({ userId }: { userId: string }) {
 
 export async function OverdueTasksWidget({ userId }: { userId: string }) {
   const db = await getDb();
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfDay = appDayStart();
 
   const rows = await db
     .select()
@@ -167,7 +172,7 @@ export async function OverdueTasksWidget({ userId }: { userId: string }) {
             </span>
             {todo.dueAt && (
               <span className="text-[10px] text-red-500 shrink-0">
-                {todo.dueAt.toLocaleDateString()}
+                {formatAppDate(todo.dueAt)}
               </span>
             )}
           </li>
@@ -186,23 +191,35 @@ export async function UpcomingBillsWidget({ userId }: { userId: string }) {
     .where(
       and(eq(financialItems.userId, userId), eq(financialItems.status, "ACTIVE"))
     )
-    .orderBy(asc(financialItems.billingDay))
-    .limit(8);
+    .limit(20);
+
+  // Order by each item's next due occurrence relative to today — sorting by
+  // the raw billing day puts already-passed items ahead of upcoming ones.
+  const upcoming = rows
+    .map((bill) => ({ bill, next: nextDueDate(bill) }))
+    .filter((entry): entry is { bill: typeof financialItems.$inferSelect; next: Date } =>
+      entry.next !== null
+    )
+    .sort((a, b) => a.next.getTime() - b.next.getTime())
+    .slice(0, 8);
 
   return (
     <WidgetShell
       title="Upcoming bills & subscriptions"
       href="/finance"
       icon={Repeat}
-      isEmpty={rows.length === 0}
+      isEmpty={upcoming.length === 0}
       emptyMessage="No active recurring items."
     >
       <ul className="space-y-2">
-        {rows.map((bill) => (
+        {upcoming.map(({ bill, next }) => (
           <li key={bill.id} className="flex items-center gap-2 text-sm">
             <BillLogo logoUrl={bill.logoUrl} size="sm" />
             <span className="flex-1 min-w-0 truncate text-[#13141A]">
               {bill.name}
+            </span>
+            <span className="text-[10px] text-[#7A847E] shrink-0">
+              {formatAppDate(next, { day: "numeric", month: "short" })}
             </span>
             <span className="font-semibold text-[#13141A] text-xs shrink-0">
               {parseFloat(bill.amount).toLocaleString()} {bill.currency}
@@ -288,8 +305,7 @@ export async function GoalProgressWidget({ userId }: { userId: string }) {
 
 export async function JournalPromptWidget({ userId }: { userId: string }) {
   const db = await getDb();
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfDay = appDayStart();
 
   const [todayEntry] = await db
     .select({ id: journalEntries.id })
@@ -309,7 +325,7 @@ export async function JournalPromptWidget({ userId }: { userId: string }) {
     "What are you grateful for right now?",
     "What would make tomorrow a win?",
   ];
-  const prompt = prompts[today.getDate() % prompts.length];
+  const prompt = prompts[appNow().getDate() % prompts.length];
 
   return (
     <WidgetShell title="Daily reflection" href="/journal" icon={NotebookPen}>
@@ -348,7 +364,7 @@ export async function RecentNotesWidget({ userId }: { userId: string }) {
           <li key={note.id} className="text-sm">
             <p className="truncate text-[#13141A] font-medium">{note.title}</p>
             <p className="text-[10px] text-[#7A847E]">
-              {note.noteType} · {note.createdAt.toLocaleDateString()}
+              {note.noteType} · {formatAppDate(note.createdAt)}
             </p>
           </li>
         ))}
@@ -531,7 +547,7 @@ export async function UpcomingCalendarWidget({ userId }: { userId: string }) {
               {reminder.entityType} reminder
             </span>
             <span className="text-[10px] text-[#7A847E] shrink-0">
-              {reminder.remindAt.toLocaleDateString()}
+              {formatAppDate(reminder.remindAt)}
             </span>
           </li>
         ))}

@@ -10,6 +10,14 @@ import {
   budgets,
 } from "@/db/schema";
 import { eq, and, desc, isNull, gte, lt } from "drizzle-orm";
+import {
+  appMonthStart,
+  appNextMonthStart,
+  appYearStart,
+  appNextYearStart,
+  appNow,
+  formatAppDate,
+} from "@/lib/dates";
 import { FinancialItemForm } from "@/components/finance/financial-item-form";
 import {
   AccountForm,
@@ -68,15 +76,16 @@ export default async function FinancePage() {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
+  const now = appNow();
+  const dateStr = formatAppDate(new Date(), {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  // Wall-clock boundaries in the app timezone — see src/lib/dates.ts.
+  const monthStart = appMonthStart();
+  const monthEnd = appNextMonthStart();
 
   const [bills, subscriptions, accountRows, categoryRows, transactionRows, areaRows, projectRows, budgetRows, monthTransactions, yearTransactions] =
     await Promise.all([
@@ -187,8 +196,8 @@ export default async function FinancePage() {
           and(
             eq(financialTransactions.userId, userId),
             isNull(financialTransactions.deletedAt),
-            gte(financialTransactions.transactionDate, new Date(now.getFullYear(), 0, 1)),
-            lt(financialTransactions.transactionDate, new Date(now.getFullYear() + 1, 0, 1))
+            gte(financialTransactions.transactionDate, appYearStart()),
+            lt(financialTransactions.transactionDate, appNextYearStart())
           )
         ),
     ]);
@@ -369,7 +378,7 @@ export default async function FinancePage() {
                           {txn.description ?? txn.merchant ?? txn.type}
                         </p>
                         <p className="text-xs text-[#6B7280] mt-0.5 truncate">
-                          {txn.transactionDate.toLocaleDateString()} ·{" "}
+                          {formatAppDate(txn.transactionDate)} ·{" "}
                           {accountName}
                           {categoryName ? ` · ${categoryName}` : ""}
                           {areaName ? ` · ${areaName}` : ""}
@@ -448,13 +457,9 @@ export default async function FinancePage() {
                   // Compare against the budget's own period: monthly budgets
                   // use this calendar month, yearly budgets the full year.
                   const periodStart =
-                    budget.period === "YEARLY"
-                      ? new Date(now.getFullYear(), 0, 1)
-                      : monthStart;
+                    budget.period === "YEARLY" ? appYearStart() : monthStart;
                   const periodEnd =
-                    budget.period === "YEARLY"
-                      ? new Date(now.getFullYear() + 1, 0, 1)
-                      : monthEnd;
+                    budget.period === "YEARLY" ? appNextYearStart() : monthEnd;
                   const vs = budgetVsActual(budget, yearTransactions, periodStart, periodEnd);
                   return (
                     <div key={budget.id} className="rounded-[20px] bg-white p-4 space-y-2">
