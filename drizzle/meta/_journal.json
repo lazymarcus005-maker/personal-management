@@ -22,6 +22,13 @@
       "when": 1788060545403,
       "tag": "0002_personal_life_os",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788668626018,
+      "tag": "0003_mcp_tokens",
+      "breakpoints": true
     }
   ]
 }
