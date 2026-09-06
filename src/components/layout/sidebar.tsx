@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
-  LayoutDashboard,
+  CalendarDays,
   ListTodo,
   Receipt,
   CreditCard,
@@ -15,16 +15,26 @@ import {
   Settings,
   LogOut,
   Repeat,
-  WalletCards,
+  Compass,
   Activity,
+  FolderKanban,
+  LineChart,
+  NotebookPen,
+  Zap,
+  WalletCards,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/", label: "Today", icon: CalendarDays },
+  { href: "/capture", label: "Capture", icon: Zap },
+  { href: "/explore", label: "Explore", icon: Compass },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/finance", label: "Finance", icon: Receipt },
+  { href: "/review", label: "Review", icon: LineChart },
   { href: "/todos", label: "Todos", icon: ListTodo },
+  { href: "/journal", label: "Journal", icon: NotebookPen },
   { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
-  { href: "/finance", label: "Bills", icon: Receipt },
   { href: "/credit-cards", label: "Credit Cards", icon: CreditCard },
   { href: "/activities", label: "Activities", icon: Activity },
   { href: "/notes", label: "Notes", icon: FileText },
@@ -43,7 +53,7 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-base font-bold tracking-tight">Poj</h1>
-          <p className="text-xs text-[#7A847E]">Personal finance</p>
+          <p className="text-xs text-[#7A847E]">Personal Life OS</p>
         </div>
       </div>
       <Separator />

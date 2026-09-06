@@ -83,6 +83,52 @@ export const recurrenceFrequencyEnum = pgEnum("recurrence_frequency", [
   "YEARLY",
 ]);
 
+export const financialItemStatusEnum = pgEnum("financial_item_status", [
+  "ACTIVE",
+  "PAUSED",
+  "CANCELLED",
+]);
+
+export const projectStatusEnum = pgEnum("project_status", [
+  "PLANNING",
+  "ACTIVE",
+  "PAUSED",
+  "COMPLETED",
+  "ARCHIVED",
+]);
+
+export const goalStatusEnum = pgEnum("goal_status", [
+  "ACTIVE",
+  "COMPLETED",
+  "PAUSED",
+  "CANCELLED",
+]);
+
+export const financialAccountTypeEnum = pgEnum("financial_account_type", [
+  "BANK",
+  "CASH",
+  "WALLET",
+  "INVESTMENT",
+  "CREDIT_CARD",
+]);
+
+export const transactionTypeEnum = pgEnum("transaction_type", [
+  "INCOME",
+  "EXPENSE",
+  "TRANSFER",
+]);
+
+export const captureItemStatusEnum = pgEnum("capture_item_status", [
+  "NEW",
+  "CONVERTED",
+  "DISMISSED",
+]);
+
+export const budgetPeriodEnum = pgEnum("budget_period", [
+  "MONTHLY",
+  "YEARLY",
+]);
+
 // ============================================================
 // Auth tables (next-auth)
 // ============================================================
@@ -191,7 +237,11 @@ export const entityTags = pgTable(
     entityType: text("entity_type").notNull(),
     entityId: uuid("entity_id").notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  }
+  },
+  (et) => ({
+    tagIdIdx: index("entity_tags_tag_id_idx").on(et.tagId),
+    entityIdx: index("entity_tags_entity_idx").on(et.entityType, et.entityId),
+  })
 );
 
 // ============================================================
@@ -278,7 +328,16 @@ export const todos = pgTable(
     dueAt: timestamp("due_at", { mode: "date" }),
     completedAt: timestamp("completed_at", { mode: "date" }),
     isRecurring: boolean("is_recurring").default(false),
-    recurrenceRuleId: uuid("recurrence_rule_id"),
+    recurrenceRuleId: uuid("recurrence_rule_id").references(
+      () => recurrenceRules.id,
+      { onDelete: "set null" }
+    ),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
     archivedAt: timestamp("archived_at", { mode: "date" }),
@@ -287,6 +346,8 @@ export const todos = pgTable(
     userIdIdx: index("todos_user_id_idx").on(todo.userId),
     userStatusIdx: index("todos_user_status_idx").on(todo.userId, todo.status),
     dueAtIdx: index("todos_due_at_idx").on(todo.dueAt),
+    projectIdx: index("todos_project_id_idx").on(todo.projectId),
+    areaIdx: index("todos_area_id_idx").on(todo.areaId),
   })
 );
 
@@ -329,12 +390,16 @@ export const financialItems = pgTable(
     startDate: timestamp("start_date", { mode: "date" }).notNull(),
     endDate: timestamp("end_date", { mode: "date" }),
     paymentMethodId: uuid("payment_method_id").references(
-      () => paymentMethods.id
+      () => paymentMethods.id,
+      { onDelete: "set null" }
     ),
     autoRenew: boolean("auto_renew").default(false),
     isVariableAmount: boolean("is_variable_amount").default(false),
-    status: text("status").default("ACTIVE"),
-    recurrenceRuleId: uuid("recurrence_rule_id"),
+    status: financialItemStatusEnum("status").default("ACTIVE").notNull(),
+    recurrenceRuleId: uuid("recurrence_rule_id").references(
+      () => recurrenceRules.id,
+      { onDelete: "set null" }
+    ),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -492,6 +557,12 @@ export const notes = pgTable(
     title: text("title").notNull(),
     content: text("content"),
     noteType: noteTypeEnum("note_type").default("GENERAL").notNull(),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
     isPinned: boolean("is_pinned").default(false),
     isFavorite: boolean("is_favorite").default(false),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -501,6 +572,8 @@ export const notes = pgTable(
   (note) => ({
     userIdIdx: index("notes_user_id_idx").on(note.userId),
     archivedAtIdx: index("notes_archived_at_idx").on(note.archivedAt),
+    projectIdx: index("notes_project_id_idx").on(note.projectId),
+    areaIdx: index("notes_area_id_idx").on(note.areaId),
   })
 );
 
@@ -915,5 +988,298 @@ export const appleHealthWorkoutStreams = pgTable(
     workoutIdx: index("apple_health_workout_streams_workout_id_idx").on(
       stream.workoutId
     ),
+  })
+);
+
+// ============================================================
+// Personal Life OS — Context Layer (Areas, Projects, Goals)
+// ============================================================
+
+export const areas = pgTable(
+  "areas",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: text("type").notNull(),
+    description: text("description"),
+    color: text("color").default("#6366f1"),
+    icon: text("icon"),
+    sortOrder: integer("sort_order").default(0),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (area) => ({
+    userIdIdx: index("areas_user_id_idx").on(area.userId),
+  })
+);
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: projectStatusEnum("status").default("PLANNING").notNull(),
+    priority: todoPriorityEnum("priority").default("MEDIUM").notNull(),
+    startDate: timestamp("start_date", { mode: "date" }),
+    targetDate: timestamp("target_date", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (project) => ({
+    userIdIdx: index("projects_user_id_idx").on(project.userId),
+    userStatusIdx: index("projects_user_status_idx").on(
+      project.userId,
+      project.status
+    ),
+    areaIdx: index("projects_area_id_idx").on(project.areaId),
+  })
+);
+
+export const goals = pgTable(
+  "goals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: goalStatusEnum("status").default("ACTIVE").notNull(),
+    targetValue: decimal("target_value", { precision: 12, scale: 2 }),
+    currentValue: decimal("current_value", { precision: 12, scale: 2 }),
+    unit: text("unit"),
+    targetDate: timestamp("target_date", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (goal) => ({
+    userIdIdx: index("goals_user_id_idx").on(goal.userId),
+    userStatusIdx: index("goals_user_status_idx").on(goal.userId, goal.status),
+    projectIdx: index("goals_project_id_idx").on(goal.projectId),
+    areaIdx: index("goals_area_id_idx").on(goal.areaId),
+  })
+);
+
+// ============================================================
+// Personal Life OS — Journal
+// ============================================================
+
+export const journalEntries = pgTable(
+  "journal_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entryDate: timestamp("entry_date", { mode: "date" }).notNull(),
+    title: text("title"),
+    content: text("content"),
+    mood: text("mood"),
+    energyLevel: integer("energy_level"),
+    wins: text("wins"),
+    concerns: text("concerns"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (entry) => ({
+    userDateIdx: index("journal_entries_user_date_idx").on(
+      entry.userId,
+      entry.entryDate
+    ),
+  })
+);
+
+// ============================================================
+// Personal Life OS — Entity Links
+// ============================================================
+
+export const entityLinks = pgTable(
+  "entity_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceType: text("source_type").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: uuid("target_id").notNull(),
+    relationType: text("relation_type").default("RELATED_TO").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (link) => ({
+    userIdIdx: index("entity_links_user_id_idx").on(link.userId),
+    sourceIdx: index("entity_links_source_idx").on(
+      link.sourceType,
+      link.sourceId
+    ),
+    targetIdx: index("entity_links_target_idx").on(
+      link.targetType,
+      link.targetId
+    ),
+  })
+);
+
+// ============================================================
+// Personal Life OS — Capture Inbox
+// ============================================================
+
+export const captureItems = pgTable(
+  "capture_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rawText: text("raw_text").notNull(),
+    suggestedType: text("suggested_type").notNull(),
+    payload: jsonb("payload"),
+    status: captureItemStatusEnum("status").default("NEW").notNull(),
+    convertedEntityType: text("converted_entity_type"),
+    convertedEntityId: uuid("converted_entity_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (item) => ({
+    userIdIdx: index("capture_items_user_id_idx").on(item.userId),
+    statusIdx: index("capture_items_status_idx").on(item.userId, item.status),
+  })
+);
+
+// ============================================================
+// Personal Life OS — Finance Expansion
+// ============================================================
+
+export const financialAccounts = pgTable(
+  "financial_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: financialAccountTypeEnum("type").notNull(),
+    currency: text("currency").default("THB"),
+    openingBalance: decimal("opening_balance", {
+      precision: 12,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    currentBalance: decimal("current_balance", { precision: 12, scale: 2 })
+      .default("0")
+      .notNull(),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (account) => ({
+    userIdIdx: index("financial_accounts_user_id_idx").on(account.userId),
+  })
+);
+
+export const financialCategories = pgTable(
+  "financial_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").default("#6366f1"),
+    icon: text("icon"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (category) => ({
+    userIdx: index("financial_categories_user_id_idx").on(category.userId),
+  })
+);
+
+export const financialTransactions = pgTable(
+  "financial_transactions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => financialAccounts.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").references(() => financialCategories.id, {
+      onDelete: "set null",
+    }),
+    type: transactionTypeEnum("type").notNull(),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").default("THB"),
+    transactionDate: timestamp("transaction_date", { mode: "date" }).notNull(),
+    merchant: text("merchant"),
+    description: text("description"),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "set null",
+    }),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (txn) => ({
+    userIdx: index("financial_transactions_user_id_idx").on(txn.userId),
+    userDateIdx: index("financial_transactions_user_date_idx").on(
+      txn.userId,
+      txn.transactionDate
+    ),
+    accountIdx: index("financial_transactions_account_id_idx").on(
+      txn.accountId
+    ),
+    categoryIdx: index("financial_transactions_category_id_idx").on(
+      txn.categoryId
+    ),
+    projectIdx: index("financial_transactions_project_id_idx").on(
+      txn.projectId
+    ),
+    areaIdx: index("financial_transactions_area_id_idx").on(txn.areaId),
+  })
+);
+
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").references(() => financialCategories.id, {
+      onDelete: "cascade",
+    }),
+    areaId: uuid("area_id").references(() => areas.id, {
+      onDelete: "cascade",
+    }),
+    period: budgetPeriodEnum("period").default("MONTHLY").notNull(),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").default("THB"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (budget) => ({
+    userIdx: index("budgets_user_id_idx").on(budget.userId),
   })
 );

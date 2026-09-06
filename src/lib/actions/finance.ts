@@ -32,7 +32,11 @@ export async function getFinancialItems(type?: string) {
   const db = await getDb();
 
   const conditions = [eq(financialItems.userId, session.user.id)];
-  if (type) conditions.push(eq(financialItems.type, type as any));
+  if (type) {
+    conditions.push(
+      eq(financialItems.type, type as "RECURRING_BILL" | "SUBSCRIPTION")
+    );
+  }
 
   return db
     .select()
@@ -49,6 +53,21 @@ export async function createFinancialItem(
   const db = await getDb();
 
   const parsed = financialItemSchema.parse(data);
+
+  // A crafted paymentMethodId must not attach another user's method.
+  if (parsed.paymentMethodId) {
+    const [method] = await db
+      .select({ id: paymentMethods.id })
+      .from(paymentMethods)
+      .where(
+        and(
+          eq(paymentMethods.id, parsed.paymentMethodId),
+          eq(paymentMethods.userId, session.user.id)
+        )
+      );
+    if (!method) throw new Error("Payment method not found");
+  }
+
   const [item] = await db
     .insert(financialItems)
     .values({
@@ -76,21 +95,51 @@ export async function createFinancialItem(
 
 export async function updateFinancialItem(
   id: string,
-  data: Partial<z.infer<typeof financialItemSchema>>
+  rawData: Partial<z.infer<typeof financialItemSchema>>
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const db = await getDb();
 
-  const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
-  if (typeof updateData.startDate === "string") updateData.startDate = new Date(updateData.startDate);
-  if (typeof updateData.endDate === "string") {
-    updateData.endDate = updateData.endDate ? new Date(updateData.endDate) : null;
+  // Parse before spreading so crafted payloads can't inject table fields.
+  const data = financialItemSchema.partial().parse(rawData);
+
+  const {
+    startDate,
+    endDate,
+    paymentMethodId,
+    ...rest
+  } = data;
+  const updateData: Partial<typeof financialItems.$inferInsert> = {
+    ...rest,
+    updatedAt: new Date(),
+  };
+  if (typeof startDate === "string") updateData.startDate = new Date(startDate);
+  if (typeof endDate === "string") {
+    updateData.endDate = endDate ? new Date(endDate) : null;
+  }
+
+  if (paymentMethodId !== undefined) {
+    if (paymentMethodId) {
+      const [method] = await db
+        .select({ id: paymentMethods.id })
+        .from(paymentMethods)
+        .where(
+          and(
+            eq(paymentMethods.id, paymentMethodId),
+            eq(paymentMethods.userId, session.user.id)
+          )
+        );
+      if (!method) throw new Error("Payment method not found");
+    }
+    // Keep the validated id (or an explicit null clearing it) in the update —
+    // validating alone used to leave the old association untouched.
+    updateData.paymentMethodId = paymentMethodId;
   }
 
   const [item] = await db
     .update(financialItems)
-    .set(updateData as any)
+    .set(updateData)
     .where(and(eq(financialItems.id, id), eq(financialItems.userId, session.user.id)))
     .returning();
 
