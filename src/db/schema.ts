@@ -1283,3 +1283,23 @@ export const budgets = pgTable(
     userIdx: index("budgets_user_id_idx").on(budget.userId),
   })
 );
+
+export const mcpTokens = pgTable(
+  "mcp_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Only the SHA-256 hash is stored; the raw token is shown once at mint.
+    tokenHash: text("token_hash").notNull(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex("mcp_tokens_token_hash_idx").on(t.tokenHash),
+    userIdIdx: index("mcp_tokens_user_id_idx").on(t.userId),
+  })
+);
