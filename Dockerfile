@@ -4,7 +4,9 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# npm 10.x (bundled with node:20) fails `npm ci` on this tree with spurious
+# "Missing: <pkg> from lock file" errors; npm 11 handles it correctly.
+RUN npm install -g npm@11.19.0 && npm ci
 
 FROM base AS builder
 WORKDIR /app
